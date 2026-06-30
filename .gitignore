@@ -1,0 +1,17 @@
+# Modelos GGUF — grandes demais para o GitHub (>100 MB).
+# Os .gguf da família Katu ficam no Hugging Face, não aqui.
+*.gguf
+
+# Dados de treino locais
+treino/saida/
+treino/*_gguf/
+*.dat
+
+# Pasta pessoal do mantenedor
+Particular/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
