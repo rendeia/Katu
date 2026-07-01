@@ -109,6 +109,27 @@
   </div>
 </div>
 
+<script>
+// (0) Guarda-corpo: detecta file:// ANTES do <script type="module"> tentar importar
+// (se estivermos em file://, o import falharia silenciosamente e este script inline nao rodaria).
+(function(){
+  if (location.protocol !== 'file:') return;
+  var msg = 'Você abriu este arquivo pelo <code>file://</code>. Chrome/Edge bloqueiam o <code>import</code> de módulos JS neste modo por CORS.<br><br><b>Solução:</b> feche esta aba e rode o lançador local:<br>' +
+    '• <b>Windows:</b> duplo clique em <code>iniciar-katu.bat</code><br>' +
+    '• <b>Linux/macOS:</b> <code>./iniciar-katu.sh</code><br><br>' +
+    'Ele sobe um mini-servidor em <code>http://localhost:8078</code> e abre esta página no modo certo.';
+  document.addEventListener('DOMContentLoaded', function(){
+    var stTxt = document.getElementById('stTxt');
+    var dot = document.getElementById('dot');
+    var prep = document.getElementById('prep');
+    var btn = document.getElementById('loadBtn');
+    if (stTxt) stTxt.textContent = 'abrir via file:// não funciona';
+    if (dot) dot.className = 'dot err';
+    if (prep) { prep.className = 'box err'; prep.innerHTML = '<b>Ops.</b><br>' + msg; }
+    if (btn) btn.style.display = 'none';
+  });
+})();
+</script>
 <script type="module">
 import * as webllm from './vendor/webllm/web-llm.js';
 
