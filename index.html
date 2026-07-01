@@ -52,6 +52,7 @@
   .bubble details.think summary::before{content:"▸ ";color:var(--muted);font-weight:normal}
   .bubble details.think[open] summary::before{content:"▾ "}
   .bubble details.think div{padding:6px 0 2px;line-height:1.5;white-space:pre-wrap}
+  .bubble .stats{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
 
   /* Composer */
   #composer{padding:12px 20px 18px;border-top:1px solid var(--border)}
@@ -198,9 +199,10 @@ function renderAll(){
   if (messages.length <= 1) { renderEmpty(); return; }
   chat.innerHTML = messages.slice(1).map(m => {
     const isU = m.role === 'user';
+    const statsHTML = (!isU && m.stats) ? `<div class="stats">${esc(m.stats)}</div>` : '';
     return `<div class="msg ${isU?'user':'assistant'}">
       <div class="role">${isU?'Você':'Katu'}</div>
-      <div class="bubble">${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}</div>
+      <div class="bubble">${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
     </div>`;
   }).join('');
   chat.scrollTop = chat.scrollHeight;
@@ -226,20 +228,35 @@ send.onclick = async () => {
   renderAll();
   setSendState(true);
   abortCtl = new AbortController();
+  let t0 = 0, nTok = 0;
   try {
     const stream = await engine.chat.completions.create({ messages: messages.slice(0, -1), stream: true, temperature: 0.6, top_p: 0.9 });
     for await (const chunk of stream) {
       if (abortCtl.signal.aborted) break;
       const delta = chunk.choices?.[0]?.delta?.content || '';
       if (delta) {
+        if (!t0) t0 = performance.now();   // marca no 1º token (ignora prefill)
+        nTok++;
         messages[idx].content += delta;
         renderAll();
       }
     }
   } catch (e) {
     if (e.name !== 'AbortError') messages[idx].content += '\n\nErro: ' + (e.message||e);
-    renderAll();
   } finally {
+    // registra estatisticas
+    if (t0 && nTok > 0) {
+      const dt = (performance.now() - t0) / 1000;
+      const tps = (nTok / dt).toFixed(1);
+      let officialStats = '';
+      try {
+        const s = await engine.runtimeStatsText?.();
+        if (s) officialStats = ' · ' + s;
+      } catch (e) {}
+      const alerta = tps < 3 ? '  ⚠️ muito lento — WebGPU pode não estar ativo (F12 → Console e confira "adapter: intel/nvidia/...")' : '';
+      messages[idx].stats = `⚡ ${tps} tok/s · ${nTok} tokens · ${dt.toFixed(1)}s${officialStats}${alerta}`;
+      renderAll();
+    }
     setSendState(false);
     input.focus();
   }
