@@ -91,7 +91,16 @@
       <div class="log" id="log">verificando WebGPU…</div>
     </div>
 
-    <button id="loadBtn" disabled>Carregar modelo (≈ 2 GB na 1ª vez)</button>
+    <div style="width:100%;max-width:520px">
+      <label for="modelSel" style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Modelo</label>
+      <select id="modelSel" style="width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14.5px;font-family:inherit">
+        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" data-size="0.8">Llama-3.2-1B · rápido (~800 MB, ~15-20 tok/s)</option>
+        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC" data-size="2.0">Llama-3.2-3B · qualidade (~2 GB, ~3-8 tok/s em iGPU)</option>
+        <option value="Hermes-3-Llama-3.2-3B-q4f16_1-MLC" data-size="2.0">Hermes-3-Llama-3.2-3B · raciocínio (~2 GB, ~3-8 tok/s)</option>
+      </select>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">A escolha fica salva. Se a iGPU estiver lenta com 3B, use 1B.</div>
+    </div>
+    <button id="loadBtn" disabled>Carregar modelo</button>
     <p style="font-size:12.5px">A primeira carga baixa o modelo do Hugging Face (uma vez só).
        Depois fica no cache do navegador, offline pra sempre.</p>
   </div>
@@ -138,7 +147,21 @@ const dot = $('dot'), stTxt = $('stTxt'), log = $('log'), bar = $('bar');
 const loadBtn = $('loadBtn'), prep = $('prep'), splash = $('splash');
 const chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 
-const MODEL_ID = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
+// Seletor de modelo: escolha persistida em localStorage; default = 1B (rapido em iGPU)
+const modelSel = $('modelSel');
+const SAVED_MODEL = localStorage.getItem('katu.model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+if (modelSel) {
+  modelSel.value = SAVED_MODEL;
+  const upd = () => {
+    localStorage.setItem('katu.model', modelSel.value);
+    const opt = modelSel.selectedOptions[0];
+    const sz = opt?.dataset?.size || '?';
+    loadBtn.textContent = `Carregar modelo (≈ ${sz} GB na 1ª vez)`;
+  };
+  modelSel.addEventListener('change', upd);
+  upd();
+}
+function getModelId(){ return (modelSel && modelSel.value) || SAVED_MODEL; }
 
 function setStatus(txt, cls){ stTxt.textContent = txt; dot.className = 'dot ' + (cls||''); }
 function logLine(t){ log.textContent = t; }
@@ -166,9 +189,12 @@ let engine = null, abortCtl = null, streaming = false;
 loadBtn.onclick = async () => {
   loadBtn.disabled = true;
   loadBtn.textContent = 'Carregando…';
+  if (modelSel) modelSel.disabled = true;   // trava o seletor durante a carga
   setStatus('carregando modelo', 'load');
+  const chosen = getModelId();
+  logLine('modelo: ' + chosen);
   try {
-    engine = await webllm.CreateMLCEngine(MODEL_ID, {
+    engine = await webllm.CreateMLCEngine(chosen, {
       initProgressCallback: (r) => {
         logLine(r.text);
         const m = /(\d+)\s*\/\s*(\d+)/.exec(r.text);
