@@ -40,14 +40,22 @@ git clone https://github.com/rendeia/Katu.git
 ```
 Ou baixe o `.zip` em [Releases](https://github.com/rendeia/Katu/releases) e extraia.
 
-### 2. Abra o `index.html`
-**Duplo clique** em `index.html` (Edge ou Chrome recente).
+### 2. Rode o lançador
+- **Windows:** duplo clique em **`iniciar-katu.bat`**
+- **Linux / macOS:** `chmod +x iniciar-katu.sh && ./iniciar-katu.sh`
+
+> ⚠️ **Por que não abrir o `index.html` direto?** O Chrome/Edge bloqueiam o `import`
+> de módulos ES em `file://` por CORS. Os lançadores sobem um mini-servidor Node
+> em `http://localhost:8078` (nada é instalado — só é preciso ter o
+> [Node.js](https://nodejs.org) no PC).
 
 ### 3. Clique em "Carregar modelo"
 - **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 1 GB, uma vez só**). Você precisa de internet **nessa** carga.
 - **Depois:** fica no cache do navegador. **Offline pra sempre**, mesmo que você tire a internet.
 
 Pronto — chat pronto pra usar. O Katu pensa antes de responder e o raciocínio aparece num bloco **💭 Pensamento** colapsável.
+
+Para encerrar: feche a janela do lançador (`Ctrl+C` no terminal).
 
 ## 🖥️ Requisitos
 
@@ -70,6 +78,8 @@ Sem WebGPU? Use o **Arandu Mirim 1.1** na plataforma [Rendeia](https://github.co
 ```
 Katu/
 ├── index.html            ← app único (interface + carrega o WebLLM)
+├── iniciar-katu.bat      ← lançador Windows (sobe servidor local)
+├── iniciar-katu.sh       ← lançador Linux/macOS
 ├── vendor/webllm/
 │   ├── web-llm.js        ← motor MLC / WebLLM (empacotado offline)
 │   └── LICENSE           ← Apache-2.0 do WebLLM
