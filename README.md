@@ -1,93 +1,136 @@
 <h1 align="center">🧠 Katu</h1>
 
 <p align="center">
-  <strong>Família G2 da <a href="https://github.com/rendeia/arandu_nano">Rendeia</a> — modelos de raciocínio em CPU, portáteis.</strong><br>
-  Pensam antes de responder. Mesma RAM do Arandu Mirim 1.1.
+  <strong>Família G2 da <a href="https://github.com/rendeia/arandu_nano">Rendeia</a> — IA de raciocínio que roda direto no navegador via WebGPU.</strong><br>
+  Zero servidor. Zero <code>.exe</code>. Sem instalar. O modelo vive no cache do seu navegador.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/licença-Apache--2.0-blue" alt="Licença Apache-2.0">
-  <img src="https://img.shields.io/badge/familia-G2%20Raciocínio-purple" alt="G2 Raciocínio">
-  <img src="https://img.shields.io/badge/CPU-only-success" alt="CPU-only">
-  <img src="https://img.shields.io/badge/RAM-~1.2%20GB-success" alt="RAM">
+  <img src="https://img.shields.io/badge/família-G2%20Raciocínio-purple" alt="G2 Raciocínio">
+  <img src="https://img.shields.io/badge/motor-WebLLM%20%2B%20WebGPU-brightgreen" alt="WebLLM">
+  <img src="https://img.shields.io/badge/CPU-livre-success" alt="CPU livre">
+  <img src="https://img.shields.io/badge/tamanho%20do%20app-6.4%20MB-blue" alt="Tamanho">
 </p>
 
 > **Katu** vem do tupi-guarani e significa **bom / justo / correto** — uma família
-> de modelos que **pensam antes de responder**, gerando um bloco interno de
-> raciocínio (`<think>...</think>`) antes da resposta final. Voltada a tarefas que
-> precisam de análise: matemática, lógica, depuração passo a passo, cruzamento
-> de dados.
+> de modelos que **pensam antes de responder**. Diferente da família Arandu (que
+> roda em CPU pelo llamafile), o Katu usa **WebLLM + WebGPU** e roda **direto
+> na sua iGPU/GPU**, sem processo de servidor.
 
-## Modelos da família
+## ⚡ O que muda em relação ao Arandu
 
-| Tier | Modelo | Base | RAM | Status |
-|---|---|---|---|---|
-| **Mirim** (pequeno) | **Katu Mirim 2.0** | DeepSeek-R1-Distill-Qwen-1.5B | ~1,2 GB | ✅ disponível |
-| **Eté** (médio) | Katu Eté 2.x | a definir (~3–4B com raciocínio) | ~2,5 GB | 🔜 planejado |
-| **Guaçu** (grande) | Katu Guaçu 2.x | a definir (~7B com raciocínio) | ~4,5 GB | 🔜 planejado |
+|  | **Arandu** (G1) na Rendeia | **Katu** (G2) — este repo |
+|---|---|---|
+| Motor | llamafile → CPU | WebLLM → **WebGPU (iGPU/GPU)** |
+| Formato do modelo | GGUF | MLC (pré-compilado) |
+| Processos | 2 (servidor + browser) | **1 (só o browser)** |
+| Instalação | descompactar + rodar `.exe` | **abrir 1 HTML** |
+| Portabilidade | pendrive completo (~1,5 GB) | **~6 MB de código** + modelo no cache do browser |
+| Ideal para | conversa do dia-a-dia, resumos, tradução | **raciocínio** (matemática, lógica, análise) |
+| RAM/CPU | ~1,2 GB RAM, todos os núcleos ocupados | RAM baixa, **CPU livre**, iGPU faz o trabalho |
 
-## Como usar (com a plataforma Rendeia)
+Coexistem — use cada uma para o que ela faz melhor.
 
-Esta família roda **dentro da plataforma Rendeia** ([rendeia/arandu_nano](https://github.com/rendeia/arandu_nano)) — não é um produto autônomo. Siga 3 passos:
+## 🚀 Como usar (3 passos)
 
-### 1. Tenha a plataforma Rendeia instalada
-Se ainda não tem, baixe e descompacte:
-<https://github.com/rendeia/arandu_nano/releases/latest>
+### 1. Baixe este repo
+```sh
+git clone https://github.com/rendeia/Katu.git
+```
+Ou baixe o `.zip` em [Releases](https://github.com/rendeia/Katu/releases) e extraia.
 
-### 2. Baixe o `.gguf` do Katu Mirim 2.0 (~1 GB)
-Do Hugging Face:
-👉 [unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF](https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF) — escolha `DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf`
+### 2. Abra o `index.html`
+**Duplo clique** em `index.html` (Edge ou Chrome recente).
 
-Coloque na **raiz** da pasta Rendeia (mesmo lugar do `IA_Portatil.vbs`).
+### 3. Clique em "Carregar modelo"
+- **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 1 GB, uma vez só**). Você precisa de internet **nessa** carga.
+- **Depois:** fica no cache do navegador. **Offline pra sempre**, mesmo que você tire a internet.
 
-### 3. Copie o lançador e o mapa para a plataforma
-Os dois arquivos abaixo precisam ir para a raiz da plataforma:
+Pronto — chat pronto pra usar. O Katu pensa antes de responder e o raciocínio aparece num bloco **💭 Pensamento** colapsável.
 
-- **[`Usar_Katu_Mirim.bat`](Usar_Katu_Mirim.bat)** — define o `.gguf` do Katu como ativo
-- **[`integrar-rendeia.md`](integrar-rendeia.md)** — passo a passo da integração (1 edição em `chat.html` adicionando o Katu ao `NOMES_MODELO`)
+## 🖥️ Requisitos
 
-Pronto. Duplo clique no `.bat`, depois reabra com `Iniciar_Arandu.vbs`.
+- **Navegador com WebGPU:**
+  - ✅ Edge / Chrome 113+ (nativo)
+  - ✅ Safari 26+
+  - 🟡 Firefox: ative em `about:config` → `dom.webgpu.enabled`
+- **iGPU ou GPU** com driver atualizado
+  - Intel: 11ª gen+ (Tiger Lake, Iris Xe) — testado, funciona muito bem
+  - AMD: Zen2+ ou RDNA
+  - NVIDIA: qualquer GPU recente
+  - Apple: M1/M2/M3/M4
+- **RAM:** ~4 GB livres (o modelo carrega na VRAM da iGPU, que compartilha memória do sistema)
+- **Disco:** ~1 GB de cache do browser para o modelo
 
-> 💡 **Combo recomendado:** em Configurações, ative o **"Modo pensador"** antes
-> de testar. Assim você vê o raciocínio do Katu num bloco "💭 Pensamento"
-> colapsável (já implementado na Rendeia).
+Sem WebGPU? Use o **Arandu Mirim 1.1** na plataforma [Rendeia](https://github.com/rendeia/arandu_nano) — ele roda em CPU e é mais leve.
 
-## Quando usar Katu Mirim em vez do Arandu Mirim?
+## 📦 O que tem neste repo
+
+```
+Katu/
+├── index.html            ← app único (interface + carrega o WebLLM)
+├── vendor/webllm/
+│   ├── web-llm.js        ← motor MLC / WebLLM (empacotado offline)
+│   └── LICENSE           ← Apache-2.0 do WebLLM
+├── README.md
+├── LICENSE               ← Apache-2.0
+└── .gitignore
+```
+
+**Total: ~6,4 MB de código.** O modelo (~1 GB) fica no cache do browser, não no disco do projeto.
+
+## 🧠 Modelos da família Katu
+
+| Tier | Modelo | Base | Status |
+|---|---|---|---|
+| **Mirim** (pequeno) | Katu Mirim 2.0 | [mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC](https://huggingface.co/mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC) | ✅ disponível |
+| **Eté** (médio) | Katu Eté 2.x | modelo ~3B com raciocínio (a definir) | 🔜 planejado |
+| **Guaçu** (grande) | Katu Guaçu 2.x | modelo ~7B com raciocínio (a definir) | 🔜 planejado |
+
+## 🎯 Quando usar Katu em vez de Arandu?
 
 | Você quer… | Use |
 |---|---|
-| Conversa do dia-a-dia, resumos, redação, tradução | **Arandu Mirim 1.1** (mais rápido) |
-| Resolver um problema passo a passo (matemática, lógica) | **Katu Mirim 2.0** |
-| Analisar/cruzar várias informações | **Katu Mirim 2.0** |
-| Explicação "por quê" / depuração | **Katu Mirim 2.0** |
-| Resposta instantânea | **Arandu Mirim 1.1** |
+| Conversa do dia-a-dia, resumos, redação, tradução | **Arandu Mirim 1.1** (rápido em CPU) |
+| Resolver problema passo a passo (matemática, lógica) | **Katu Mirim 2.0** (raciocina) |
+| Analisar/comparar/cruzar informações | **Katu Mirim 2.0** |
+| Explicar "por quê" / depurar situação | **Katu Mirim 2.0** |
+| Máquina antiga sem WebGPU | **Arandu Mirim 1.1** |
 
-Os dois **coexistem** — você alterna pelos `.bat` na raiz da plataforma.
+## 🔒 Privacidade
 
-## Honestidade técnica
+- **100% local após a 1ª carga.** Você só toca a internet para baixar o modelo uma vez do Hugging Face.
+- **Nenhuma pergunta sai do seu navegador.** Toda a inferência acontece na sua iGPU/GPU.
+- Sem telemetria, sem tracking.
+- Para "esquecer" o modelo: limpe os dados do site em Configurações do navegador → Privacidade.
 
-- Katu Mirim 2.0 é **destilação** do DeepSeek R1 em Qwen-1.5B — não é fine-tune próprio (ainda).
-- O Distill não tem imatrix pt-BR (planejado).
-- **pt-BR é decente, mas inferior ao Arandu Mirim 1.1** (que tem imatrix pt-BR). O Katu brilha em **raciocínio**, especialmente em inglês/matemática/código.
-- Por gerar tokens de raciocínio antes da resposta, é **~2-3x mais lento** que o Arandu Mirim 1.1 em respostas curtas.
+## 🧪 Honestidade técnica
 
-## Próximas evoluções (família Katu)
+- O DeepSeek R1 Distill Qwen 1.5B é um **modelo destilado** — não é fine-tune próprio (ainda).
+- **pt-BR é decente, mas inferior ao Arandu Mirim 1.1** (que tem imatrix pt-BR). O Katu brilha em **raciocínio**, principalmente em inglês/matemática/código.
+- A **primeira geração** de tokens depois de carregar o modelo é ~2s mais lenta (compilação de shaders WebGPU). Depois, tudo fluído.
+- Modelo fica em **VRAM enquanto a aba estiver aberta**. Fechar a aba libera. Não tem "sleep-idle" como o llamafile.
 
-- **Imatrix pt-BR para Katu Mirim 2.0** — adaptar [`regenerar_nano_1.2.ps1`](https://github.com/rendeia/arandu_nano/blob/main/treino/imatrix/regenerar_nano_1.2.ps1) da plataforma
-- **Katu Eté 2.x** — versão ~3B com raciocínio mais robusto (se cabível em CPU+USB)
-- **Dataset pt-BR de raciocínio** — para fine-tune próprio
-- **Notebook de fine-tune** — adaptar do `treino/` da plataforma
+## 🛣️ Próximas evoluções
 
-## Licença e créditos
+- **Persistir histórico** de conversas em `localStorage`
+- **Fine-tune próprio** em corpus pt-BR de raciocínio
+- **Katu Eté 2.x** — versão média (~3B) quando aparecer modelo compatível com MLC
+- **Modo memória** semelhante ao da Rendeia (perfil + itens sob demanda)
+- **PWA** (Progressive Web App) — instalar como app
+
+## 📜 Licença e créditos
 
 | Componente | Autor | Licença |
 |---|---|---|
-| **DeepSeek R1 Distill Qwen 1.5B** (base) | DeepSeek-AI | MIT |
-| **Qwen 1.5B** (base da base) | Alibaba Cloud | Apache-2.0 |
-| **Rendeia** (plataforma) | celionormando | Apache-2.0 |
+| **DeepSeek R1 Distill Qwen 1.5B** (modelo) | DeepSeek-AI | MIT |
+| **Qwen 2.5** (base) | Alibaba Cloud | Apache-2.0 |
+| **WebLLM / MLC-LLM** (motor) | MLC.ai / CMU / Shanghai Jiao Tong | Apache-2.0 |
+| **Katu** (este repo) | celionormando | Apache-2.0 |
 
-Código deste repositório: **Apache-2.0**.
+Código deste repositório: **Apache-2.0** (ver `LICENSE`).
 
 ---
 
-<p align="center"><sub>Família <strong>Katu</strong> · parte da <strong><a href="https://github.com/rendeia/arandu_nano">Rendeia</a></strong> — IA portátil em CPU, offline, no pendrive</sub></p>
+<p align="center"><sub>Família <strong>Katu</strong> · parte da <strong><a href="https://github.com/rendeia/arandu_nano">Rendeia</a></strong> — famílias de IA portátil, uma para cada trabalho</sub></p>
