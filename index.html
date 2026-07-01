@@ -80,7 +80,7 @@
   <!-- Splash: carregamento do modelo -->
   <div id="splash">
     <h2>🧠 Katu Mirim 2.0</h2>
-    <p>Modelo de raciocínio destilado do DeepSeek R1, rodando <b>direto no seu navegador</b>
+    <p>Assistente de raciocínio (base Llama-3.2-3B-Instruct), rodando <b>direto no seu navegador</b>
        via WebGPU. Sem servidor, sem <code>.exe</code>, sem instalar nada. Parte da
        plataforma <a href="https://github.com/rendeia/arandu_nano" style="color:var(--accent)">Rendeia</a>.</p>
 
@@ -90,7 +90,7 @@
       <div class="log" id="log">verificando WebGPU…</div>
     </div>
 
-    <button id="loadBtn" disabled>Carregar modelo (≈ 1 GB na 1ª vez)</button>
+    <button id="loadBtn" disabled>Carregar modelo (≈ 2 GB na 1ª vez)</button>
     <p style="font-size:12.5px">A primeira carga baixa o modelo do Hugging Face (uma vez só).
        Depois fica no cache do navegador, offline pra sempre.</p>
   </div>
@@ -99,12 +99,12 @@
   <div id="chat" style="display:none"></div>
   <div id="composer" style="display:none">
     <div class="row">
-      <textarea id="input" rows="1" placeholder="Pergunte algo que precise de raciocínio (matemática, lógica, análise)…"></textarea>
+      <textarea id="input" rows="1" placeholder="Pergunte algo que precise de análise, comparação, matemática ou lógica…"></textarea>
       <button id="send" title="Enviar">
         <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
-    <div class="hint">O Katu pensa antes de responder — o raciocínio aparece num bloco 💭 colapsável.</div>
+    <div class="hint">Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.</div>
   </div>
 </div>
 
@@ -116,7 +116,7 @@ const dot = $('dot'), stTxt = $('stTxt'), log = $('log'), bar = $('bar');
 const loadBtn = $('loadBtn'), prep = $('prep'), splash = $('splash');
 const chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 
-const MODEL_ID = "DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC";
+const MODEL_ID = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
 
 function setStatus(txt, cls){ stTxt.textContent = txt; dot.className = 'dot ' + (cls||''); }
 function logLine(t){ log.textContent = t; }
@@ -170,7 +170,7 @@ loadBtn.onclick = async () => {
 
 // (3) Chat / streaming
 const messages = [
-  { role:'system', content:'Você é o Katu, modelo da família G2 (Raciocínio) da plataforma Rendeia. Pense passo a passo antes de responder; para questões factuais em português do Brasil, seja preciso e curto.' }
+  { role:'system', content:'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia (base Llama-3.2-3B-Instruct). Rode no navegador via WebGPU, 100% local. Para problemas que exigem análise ou passos, pense passo a passo antes de dar a resposta final. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.' }
 ];
 
 function renderEmpty(){ chat.innerHTML = '<div class="empty"><h2>Como posso ajudar?</h2><p>Digite uma pergunta que exija análise, comparação ou raciocínio passo a passo.</p></div>'; }

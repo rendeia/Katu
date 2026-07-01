@@ -14,9 +14,9 @@
 </p>
 
 > **Katu** vem do tupi-guarani e significa **bom / justo / correto** — uma família
-> de modelos que **pensam antes de responder**. Diferente da família Arandu (que
-> roda em CPU pelo llamafile), o Katu usa **WebLLM + WebGPU** e roda **direto
-> na sua iGPU/GPU**, sem processo de servidor.
+> voltada a **raciocínio, análise e resolução de problemas**. Diferente da família
+> Arandu (que roda em CPU pelo llamafile), o Katu usa **WebLLM + WebGPU** e roda
+> **direto na sua iGPU/GPU**, sem processo de servidor.
 
 ## ⚡ O que muda em relação ao Arandu
 
@@ -50,10 +50,10 @@ Ou baixe o `.zip` em [Releases](https://github.com/rendeia/Katu/releases) e extr
 > [Node.js](https://nodejs.org) no PC).
 
 ### 3. Clique em "Carregar modelo"
-- **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 1 GB, uma vez só**). Você precisa de internet **nessa** carga.
+- **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 2 GB, uma vez só**). Você precisa de internet **nessa** carga.
 - **Depois:** fica no cache do navegador. **Offline pra sempre**, mesmo que você tire a internet.
 
-Pronto — chat pronto pra usar. O Katu pensa antes de responder e o raciocínio aparece num bloco **💭 Pensamento** colapsável.
+Pronto — chat pronto pra usar. Se você pedir "pense passo a passo", o raciocínio pode aparecer num bloco **💭 Pensamento** colapsável.
 
 Para encerrar: feche a janela do lançador (`Ctrl+C` no terminal).
 
@@ -69,7 +69,7 @@ Para encerrar: feche a janela do lançador (`Ctrl+C` no terminal).
   - NVIDIA: qualquer GPU recente
   - Apple: M1/M2/M3/M4
 - **RAM:** ~4 GB livres (o modelo carrega na VRAM da iGPU, que compartilha memória do sistema)
-- **Disco:** ~1 GB de cache do browser para o modelo
+- **Disco:** ~2 GB de cache do browser para o modelo
 
 Sem WebGPU? Use o **Arandu Mirim 1.1** na plataforma [Rendeia](https://github.com/rendeia/arandu_nano) — ele roda em CPU e é mais leve.
 
@@ -88,13 +88,13 @@ Katu/
 └── .gitignore
 ```
 
-**Total: ~6,4 MB de código.** O modelo (~1 GB) fica no cache do browser, não no disco do projeto.
+**Total: ~6,4 MB de código.** O modelo (~2 GB) fica no cache do browser, não no disco do projeto.
 
 ## 🧠 Modelos da família Katu
 
 | Tier | Modelo | Base | Status |
 |---|---|---|---|
-| **Mirim** (pequeno) | Katu Mirim 2.0 | [mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC](https://huggingface.co/mlc-ai/DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC) | ✅ disponível |
+| **Mirim** (pequeno) | Katu Mirim 2.0 | [mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC) | ✅ disponível |
 | **Eté** (médio) | Katu Eté 2.x | modelo ~3B com raciocínio (a definir) | 🔜 planejado |
 | **Guaçu** (grande) | Katu Guaçu 2.x | modelo ~7B com raciocínio (a definir) | 🔜 planejado |
 
@@ -117,10 +117,23 @@ Katu/
 
 ## 🧪 Honestidade técnica
 
-- O DeepSeek R1 Distill Qwen 1.5B é um **modelo destilado** — não é fine-tune próprio (ainda).
-- **pt-BR é decente, mas inferior ao Arandu Mirim 1.1** (que tem imatrix pt-BR). O Katu brilha em **raciocínio**, principalmente em inglês/matemática/código.
-- A **primeira geração** de tokens depois de carregar o modelo é ~2s mais lenta (compilação de shaders WebGPU). Depois, tudo fluído.
-- Modelo fica em **VRAM enquanto a aba estiver aberta**. Fechar a aba libera. Não tem "sleep-idle" como o llamafile.
+- O **Llama-3.2-3B-Instruct** é um modelo instruct competente, mas **não tem
+  `<think>` nativo** como um R1 Distill teria. O bloco "💭 Pensamento"
+  colapsável no chat só aparece quando o modelo produz `<think>...</think>` —
+  aqui isso acontece só se você **pedir explicitamente** "pense passo a passo
+  antes de responder".
+- **Por que não o R1 Distill 1.5B?** A MLC (fornecedora dos modelos WebLLM)
+  **removeu o DeepSeek-R1-Distill-Qwen-1.5B** do pré-compilado v0.2.84 por
+  problema de correção reportado. Trocamos para Llama-3.2-3B (oficialmente
+  suportado, sem risco de saída errada). Voltaremos ao R1 quando a MLC
+  reincluir com fix ou quando houver equivalente.
+- **pt-BR é decente**, mas o Arandu Mirim 1.1 (com imatrix pt-BR) é melhor em
+  português puro. O Katu compensa em **análise / raciocínio** e velocidade na
+  iGPU.
+- A **primeira geração** de tokens depois de carregar é ~2s mais lenta
+  (compilação de shaders WebGPU). Depois, fluído.
+- Modelo fica em **VRAM enquanto a aba estiver aberta**. Fechar a aba libera.
+  Não tem "sleep-idle" como o llamafile.
 
 ## 🛣️ Próximas evoluções
 
@@ -134,10 +147,14 @@ Katu/
 
 | Componente | Autor | Licença |
 |---|---|---|
-| **DeepSeek R1 Distill Qwen 1.5B** (modelo) | DeepSeek-AI | MIT |
-| **Qwen 2.5** (base) | Alibaba Cloud | Apache-2.0 |
+| **Llama-3.2-3B-Instruct** (modelo atual) | Meta | Llama 3.2 Community License |
 | **WebLLM / MLC-LLM** (motor) | MLC.ai / CMU / Shanghai Jiao Tong | Apache-2.0 |
 | **Katu** (este repo) | celionormando | Apache-2.0 |
+
+> **Sobre a licença do Llama:** a Llama 3.2 Community License permite uso
+> comercial e redistribuição com atribuição. O modelo é servido do repo
+> [mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC)
+> — este projeto apenas linka; nada é redistribuído aqui.
 
 Código deste repositório: **Apache-2.0** (ver `LICENSE`).
 
