@@ -93,31 +93,33 @@
   .bubble details.think div{padding:6px 6px 4px;line-height:1.5;white-space:pre-wrap}
   .bubble .stats{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
 
-  /* Painel do pensamento (sticky) */
-  #thinkingPanel{position:sticky;top:0;z-index:5;padding:10px 20px;background:linear-gradient(to bottom, var(--bg), rgba(15,17,21,.85));border-bottom:1px solid var(--border);display:none}
+  /* Painel do pensamento — flutua sobre um degradê no topo, sem moldura; a resposta some por baixo */
+  #thinkingPanel{position:sticky;top:0;z-index:5;padding:14px 20px 2px;pointer-events:none;
+    background:linear-gradient(to bottom, rgba(15,17,21,.97) 0%, rgba(15,17,21,.88) 35%, rgba(15,17,21,.55) 65%, rgba(15,17,21,0) 100%);
+    display:none}
   #thinkingPanel.show{display:block;animation:fadeIn .2s}
   @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-  .tp{max-width:820px;margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
-  .tp-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .tp-phase{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--panel2);border:1px solid var(--border)}
-  .tp-phase.raciocinando{color:var(--think);border-color:var(--think);background:rgba(244,185,66,.08)}
-  .tp-phase.escrevendo{color:var(--accent);border-color:var(--accent);background:rgba(124,92,255,.08)}
+  .tp{max-width:820px;margin:0 auto;pointer-events:auto}
+  .tp-row{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .tp-phase{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);text-shadow:0 1px 4px rgba(0,0,0,.6)}
+  .tp-phase.raciocinando{color:var(--think);border-color:rgba(244,185,66,.4);background:rgba(244,185,66,.1)}
+  .tp-phase.escrevendo{color:var(--accent);border-color:rgba(124,92,255,.4);background:rgba(124,92,255,.1)}
   .tp-phase .pulse{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite}
   @keyframes pulse{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
-  .tp-count{font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+  .tp-count{font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .tp-count b{color:var(--text);font-size:15px;font-weight:700}
-  .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+  .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .tp-tps b{color:var(--text);font-size:14px;font-weight:600}
-  /* Constelação pulsante — cada token acende uma estrela; próximas se ligam */
-  .tp-const{position:relative;margin-bottom:6px;height:140px;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);overflow:hidden}
-  .tp-const svg{width:100%;height:100%;display:block;transform-origin:center;transform:scale(calc(1 + var(--pulse, 0) * 0.05));transition:transform .25s ease}
-  .tp-const .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 16px;font-size:12px;color:var(--muted);font-style:italic;pointer-events:none;transition:opacity .35s}
+  /* Constelação pulsante — flutua solta, sem fundo nem borda; cada token acende uma estrela, próximas se ligam */
+  .tp-const{position:relative;height:118px;max-width:360px;margin:2px auto 0}
+  .tp-const svg{width:100%;height:100%;display:block;overflow:visible;transform-origin:center;transform:scale(calc(1 + var(--pulse, 0) * 0.06));transition:transform .25s ease}
+  .tp-const .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 16px;font-size:12px;color:var(--muted);font-style:italic;pointer-events:none;transition:opacity .35s;text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .tp-const.has-stars .empty-hint{opacity:0}
   .tp-const .star{transition:r .3s ease, opacity .5s ease}
   .tp-const .link{stroke-linecap:round;transition:stroke-opacity .4s}
-  .tp-progress{width:100%;height:3px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .tp-progress{max-width:360px;margin:4px auto 0;width:100%;height:2px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
   .tp-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s;width:0%}
-  .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace}
+  .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace;text-shadow:0 1px 4px rgba(0,0,0,.6)}
 
   /* Composer */
   #composer{padding:12px 20px 18px;border-top:1px solid var(--border);max-width:820px;margin:0 auto;width:100%}
@@ -643,10 +645,18 @@ const SHAPE_KEYWORDS = [
   { cat: 'espiral',  re: /\b(hist[oó]ria\w*|\btempo\b|viagem\w*|passado|futuro|s[eé]culo\w*|\bera\b|[eé]poca\w*|cronologia\w*|linha do tempo)\b/i },
   { cat: 'onda',     re: /\b(m[uú]sica\w*|\bsons?\b|\bartes?\b|cor(?:es)?|desenho\w*|poesia\w*|poema\w*|can[cç][aã]o\w*|melodia\w*|pintura\w*)\b/i },
 ];
+const ALL_SHAPE_CATS = ['poligono', 'flor', 'grade', 'espiral', 'onda', 'default'];
+function hashPrompt(s){
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h;
+}
 function detectShapeCategory(text){
   const t = (text || '').toLowerCase();
   for (const { cat, re } of SHAPE_KEYWORDS) { if (re.test(t)) return cat; }
-  return 'default';
+  // Sem palavra-chave clara: hash do prompt escolhe entre as 6 formas — sempre há variedade
+  // (mesma pergunta = mesma forma) em vez de toda pergunta genérica cair na mesma constelação neutra.
+  return ALL_SHAPE_CATS[hashPrompt(t.trim()) % ALL_SHAPE_CATS.length];
 }
 const SHAPE_LABELS = { poligono:'um polígono', flor:'uma flor', grade:'um circuito', espiral:'uma espiral', onda:'uma onda', default:'uma constelação' };
 
