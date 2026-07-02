@@ -635,30 +635,138 @@ const CONST_MAX = 150;         // teto de estrelas visíveis; depois disso só p
 const CONST_LINK_DIST = 42;    // distância máx. (unidades do viewBox) para conectar
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
+// Palavra-chave do prompt -> arquétipo de forma. Primeira categoria que casar vence.
+const SHAPE_KEYWORDS = [
+  { cat: 'poligono', re: /\b(matem[aá]tic\w*|n[uú]mero\w*|c[aá]lculo\w*|calcul\w*|equa[cç][aã]o\w*|equa[cç][oõ]es|l[oó]gic\w*|algoritmo\w*|f[oó]rmula\w*|geometri\w*|geom[eé]tric\w*|estat[ií]stic\w*|probabilidade\w*)\b/i },
+  { cat: 'flor',     re: /\b(natureza\w*|planta\w*|flor(?:es)?|animal\w*|\bvida\b|sentiment\w*|emo[cç][aã]o\w*|emo[cç][oõ]es|amor|floresta\w*|jardim\w*|ecossistema\w*|biologi\w*)\b/i },
+  { cat: 'grade',    re: /\b(c[oó]digo\w*|programa\w*|programaç\w*|fun[cç][aã]o\w*|sistema\w*|computador\w*|\bredes?\b|\bapi\b|software\w*|banco de dados|javascript|python|html|css|servidor\w*)\b/i },
+  { cat: 'espiral',  re: /\b(hist[oó]ria\w*|\btempo\b|viagem\w*|passado|futuro|s[eé]culo\w*|\bera\b|[eé]poca\w*|cronologia\w*|linha do tempo)\b/i },
+  { cat: 'onda',     re: /\b(m[uú]sica\w*|\bsons?\b|\bartes?\b|cor(?:es)?|desenho\w*|poesia\w*|poema\w*|can[cç][aã]o\w*|melodia\w*|pintura\w*)\b/i },
+];
+function detectShapeCategory(text){
+  const t = (text || '').toLowerCase();
+  for (const { cat, re } of SHAPE_KEYWORDS) { if (re.test(t)) return cat; }
+  return 'default';
+}
+const SHAPE_LABELS = { poligono:'um polígono', flor:'uma flor', grade:'um circuito', espiral:'uma espiral', onda:'uma onda', default:'uma constelação' };
+
+// Geradores de posição por arquétipo. Cada um recebe o índice n (0-based) da estrela
+// e devolve {x,y} em coordenadas do viewBox — o esqueleto se completa conforme os tokens chegam.
+function shapeDefault(n){
+  // Filotaxia (padrão de girassol) — cresce do centro pra fora, sensação orgânica neutra.
+  const angle = n * GOLDEN_ANGLE;
+  const r = 5 * Math.sqrt(n + 1);
+  const jitter = 3;
+  return {
+    x: CONST_CX + r * Math.cos(angle) + (Math.random() - .5) * jitter,
+    y: CONST_CY + r * Math.sin(angle) + (Math.random() - .5) * jitter * 0.7
+  };
+}
+function shapePolygon(n){
+  // Hexágonos aninhados, cada volta um pouco maior e rotacionada — leitura "geométrico/anguloso".
+  const sides = 6, perSide = 7, perLap = sides * perSide;
+  const lap = Math.floor(n / perLap);
+  const t = (n % perLap) / perLap;
+  const edge = Math.floor(t * sides);
+  const edgeT = t * sides - edge;
+  const rot = -Math.PI / 2 + lap * 0.18;
+  const R = 13 + Math.min(lap, 3) * 13;
+  const a1 = rot + edge * (2 * Math.PI / sides);
+  const a2 = rot + (edge + 1) * (2 * Math.PI / sides);
+  const x1 = CONST_CX + R * Math.cos(a1), y1 = CONST_CY + R * Math.sin(a1);
+  const x2 = CONST_CX + R * Math.cos(a2), y2 = CONST_CY + R * Math.sin(a2);
+  const jitter = 1.2;
+  return {
+    x: x1 + (x2 - x1) * edgeT + (Math.random() - .5) * jitter,
+    y: y1 + (y2 - y1) * edgeT + (Math.random() - .5) * jitter
+  };
+}
+function shapeFlower(n){
+  // Curva-rosa de 5 pétalas que "desabrocha": raio cresce nas primeiras voltas até o tamanho final.
+  const k = 5, thetaStep = 0.24;
+  const theta = n * thetaStep;
+  const lap = Math.floor(theta / (2 * Math.PI));
+  const bloom = Math.min(1, 0.35 + lap * 0.33);
+  const r = 10 + 50 * bloom * Math.abs(Math.cos(k * theta));
+  const jitter = 1.5;
+  return {
+    x: CONST_CX + r * Math.cos(theta) + (Math.random() - .5) * jitter,
+    y: CONST_CY + r * Math.sin(theta) + (Math.random() - .5) * jitter
+  };
+}
+function shapeGrid(n){
+  // Percurso em serpentina por uma grade — nós de circuito; voltas extras adicionam "atividade".
+  const cols = 9, rows = 4, marginX = 24, marginY = 14;
+  const usableW = CONST_VB_W - marginX * 2, usableH = CONST_VB_H - marginY * 2;
+  const perLap = cols * rows;
+  const lap = Math.floor(n / perLap);
+  const idx = n % perLap;
+  const row = Math.floor(idx / cols);
+  const col = (row % 2 === 0) ? (idx % cols) : (cols - 1 - (idx % cols));
+  const jitter = lap === 0 ? 0.8 : 2.2;
+  return {
+    x: marginX + (col / (cols - 1)) * usableW + (Math.random() - .5) * jitter,
+    y: marginY + (row / (rows - 1)) * usableH + (Math.random() - .5) * jitter
+  };
+}
+function shapeSpiral(n){
+  // Espiral de Arquimedes bem enrolada — como uma mola/relógio se desenrolando.
+  const thetaStep = 0.42, growth = 1.55, maxR = 54;
+  const theta = n * thetaStep;
+  let r = growth * theta;
+  if (r > maxR) r = maxR - ((r - maxR) % 6);
+  const jitter = 1;
+  return {
+    x: CONST_CX + r * Math.cos(theta) + (Math.random() - .5) * jitter,
+    y: CONST_CY + r * Math.sin(theta) + (Math.random() - .5) * jitter
+  };
+}
+function shapeWave(n){
+  // Varredura senoidal esquerda->direita; cada passada completa muda de "faixa" vertical.
+  const perLap = 60, marginX = 20;
+  const usableW = CONST_VB_W - marginX * 2;
+  const lap = Math.floor(n / perLap);
+  const idx = n % perLap;
+  const t = idx / (perLap - 1);
+  const x = marginX + t * usableW;
+  const freq = 2.5, amp = 30 - Math.min(lap, 2) * 4;
+  const laneOffset = ((lap % 3) - 1) * 22;
+  const y = CONST_CY + laneOffset + amp * Math.sin(t * freq * 2 * Math.PI + lap * 0.6);
+  const jitter = 1;
+  return { x: x + (Math.random() - .5) * jitter, y: y + (Math.random() - .5) * jitter };
+}
+function shapePoint(category, n){
+  switch (category) {
+    case 'poligono': return shapePolygon(n);
+    case 'flor':     return shapeFlower(n);
+    case 'grade':    return shapeGrid(n);
+    case 'espiral':  return shapeSpiral(n);
+    case 'onda':     return shapeWave(n);
+    default:         return shapeDefault(n);
+  }
+}
+
 let ticker = null;
 let tickerData = null;
 let constState = null;
 
-function resetConstellation(){
-  constState = { stars: [], lastCount: 0, addEvery: 1 };
+function resetConstellation(promptText){
+  const category = detectShapeCategory(promptText);
+  constState = { stars: [], lastCount: 0, addEvery: 1, category };
   tpConstStars.textContent = '';
   tpConstLinks.textContent = '';
   tpConst.classList.remove('has-stars');
   tpConst.style.setProperty('--pulse', '0');
+  tpConstHint.textContent = `Aguardando primeiro token… desenhando ${SHAPE_LABELS[category]} a partir da sua pergunta.`;
 }
 
 function addStar(phase){
   const stars = constState.stars;
   if (stars.length >= CONST_MAX) return;
   const n = stars.length;
-  // Filotaxia (padrão de girassol) + jitter — cresce do centro pra fora, sensação orgânica
-  const angle = n * GOLDEN_ANGLE;
-  const r = 5 * Math.sqrt(n + 1);
-  const jitter = 3;
-  const rawX = CONST_CX + r * Math.cos(angle) + (Math.random() - .5) * jitter;
-  const rawY = CONST_CY + r * Math.sin(angle) + (Math.random() - .5) * jitter * 0.7;
-  const cx = Math.max(6, Math.min(CONST_VB_W - 6, rawX));
-  const cy = Math.max(6, Math.min(CONST_VB_H - 6, rawY));
+  const raw = shapePoint(constState.category, n);
+  const cx = Math.max(6, Math.min(CONST_VB_W - 6, raw.x));
+  const cy = Math.max(6, Math.min(CONST_VB_H - 6, raw.y));
   const isThink = phase === 'raciocinando';
   const color = isThink ? 'var(--think)' : 'var(--accent)';
 
@@ -763,9 +871,9 @@ function updatePanel(){
   tpNote.textContent = `${elapsed.toFixed(1)}s decorridos${inThink ? ' · raciocinando' : ''}`;
 }
 
-function showThinkingPanel(){
+function showThinkingPanel(promptText){
   thinkingPanel.classList.add('show');
-  resetConstellation();
+  resetConstellation(promptText);
   tpCount.textContent = '0'; tpTps.textContent = '0.0'; tpProgress.style.width = '0%';
   tpPhase.className = 'tp-phase escrevendo'; tpPhaseText.textContent = 'Aguardando 1º token…';
   tpNote.textContent = '';
@@ -873,8 +981,8 @@ send.onclick = async () => {
   setSendState(true);
   abortCtl = new AbortController();
 
-  // Painel de pensamento
-  showThinkingPanel();
+  // Painel de pensamento — a forma é escolhida a partir de palavras-chave do prompt
+  showThinkingPanel(text);
   const panelState = {
     active: true,
     t0: performance.now(),
