@@ -108,18 +108,19 @@
   .tp-count b{color:var(--text);font-size:15px;font-weight:700}
   .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
   .tp-tps b{color:var(--text);font-size:14px;font-weight:600}
-  /* ECG (heartbeat) — substitui o equalizador */
-  .tp-ecg{width:100%;height:52px;display:block;margin-bottom:6px}
-  .tp-ecg .grid{stroke:var(--border);stroke-width:.5;stroke-dasharray:2 3;opacity:.35}
-  .tp-ecg .baseline{stroke:var(--panel2);stroke-width:.8;opacity:.5}
-  .tp-ecg .trace{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(124,92,255,.45));transition:stroke .3s}
-  .tp-ecg .trace.raciocinando{stroke:var(--think);filter:drop-shadow(0 0 3px rgba(244,185,66,.5))}
-  .tp-ecg .fill{fill:url(#ecgGrad);opacity:.15;stroke:none}
-  .tp-ecg .fill.raciocinando{fill:url(#ecgGradThink)}
-  .tp-ecg .pulse{fill:var(--accent);filter:drop-shadow(0 0 6px var(--accent));transition:fill .3s}
-  .tp-ecg .pulse.raciocinando{fill:var(--think);filter:drop-shadow(0 0 6px var(--think))}
-  @keyframes ecgPulse{0%,100%{r:2.5;opacity:1}50%{r:4.5;opacity:.55}}
-  .tp-ecg .pulse{animation:ecgPulse 1.2s ease-in-out infinite}
+  /* Timeline de etapas do raciocínio (substitui o gráfico) */
+  .tp-steps{margin-bottom:6px;max-height:140px;overflow-y:auto;padding:6px 2px;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border)}
+  .tp-steps.empty{padding:10px 12px;text-align:center;font-size:12px;color:var(--muted);font-style:italic;border:none}
+  .tp-steps .step{display:flex;align-items:flex-start;gap:8px;padding:4px 6px;font-size:12.5px;line-height:1.5}
+  .tp-steps .step + .step{margin-top:1px}
+  .tp-steps .step .mk{width:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .tp-steps .step.done .mk{color:var(--ok)}
+  .tp-steps .step.active .mk{color:var(--think);animation:stepPulse 1.2s ease-in-out infinite}
+  .tp-steps .step .tx{flex:1;color:var(--text)}
+  .tp-steps .step.done .tx{color:var(--muted)}
+  .tp-steps .step.active .tx{color:var(--think);font-weight:500}
+  @keyframes stepPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.15)}}
+  .tp-steps .step .mk svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .tp-progress{width:100%;height:3px;background:var(--panel2);border-radius:99px;overflow:hidden}
   .tp-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s;width:0%}
   .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace}
@@ -241,25 +242,7 @@
             <div class="tp-count"><b id="tpCount">0</b> tokens</div>
             <div class="tp-tps"><b id="tpTps">0.0</b> tok/s</div>
           </div>
-          <svg class="tp-ecg" id="tpEcg" viewBox="0 0 300 52" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="ecgGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--accent)"/>
-                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ecgGradThink" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--think)"/>
-                <stop offset="100%" stop-color="var(--think)" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <line class="grid" x1="0" y1="13" x2="300" y2="13"/>
-            <line class="grid" x1="0" y1="26" x2="300" y2="26"/>
-            <line class="grid" x1="0" y1="39" x2="300" y2="39"/>
-            <line class="baseline" x1="0" y1="26" x2="300" y2="26"/>
-            <path class="fill" id="ecgFill" d="M 0 26 L 300 26 L 300 26 L 0 26 Z"/>
-            <path class="trace" id="ecgTrace" d="M 0 26"/>
-            <circle class="pulse" id="ecgPulse" cx="298" cy="26" r="3"/>
-          </svg>
+          <div class="tp-steps empty" id="tpSteps">Aguardando primeiro passo do raciocínio…</div>
           <div class="tp-progress"><div id="tpProgress"></div></div>
           <div class="tp-note" id="tpNote"></div>
         </div>
@@ -358,7 +341,7 @@ const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $(
 const toast = $('toast');
 const thinkingPanel = $('thinkingPanel');
 const tpPhase = $('tpPhase'), tpPhaseText = $('tpPhaseText'), tpCount = $('tpCount'), tpTps = $('tpTps');
-const tpEcg = $('tpEcg'), ecgTrace = $('ecgTrace'), ecgFill = $('ecgFill'), ecgPulse = $('ecgPulse');
+const tpSteps = $('tpSteps');
 const tpProgress = $('tpProgress'), tpNote = $('tpNote');
 const composerHint = $('composerHint');
 
@@ -642,16 +625,60 @@ function openStatsModal(think){
 statsClose.onclick = () => modalStats.classList.remove('open');
 modalStats.addEventListener('click', e => { if (e.target === modalStats) modalStats.classList.remove('open'); });
 
-// ============ Painel do pensamento (ao vivo) ============
-// ECG heartbeat: buffer de 100 slots × 50ms = 5s de janela deslizante
-const ECG_SLOTS = 100;
-const ECG_SLOT_MS = 50;
-const ECG_W = 300, ECG_H = 52, ECG_BASELINE = 26;
-let ecgBuffer = new Array(ECG_SLOTS).fill(0);
-let ecgLastRoll = 0;
+// ============ Painel do pensamento — Timeline de etapas ============
+// Detecta marcadores de passo comuns em pt-BR + inglês; cada frase que abre com um deles vira uma etapa.
+const STEP_MARKERS_RE = /^(?:(?:Primeiro|Segundo|Terceiro|Quarto|Quinto|Depois|Em seguida|Ent[ãa]o|Assim|Portanto|Logo|Verificando|Concluindo|Analisando|Considerando|Vamos|Preciso|Comecemos|Aplicando|Substituindo|Reorganizando|Finalmente|Antes|Note que|Observe|Repare|Isolando|Calculando|First|Second|Third|Then|Next|Therefore|Finally|So|Now|Let me|Let's|I need|We need|Consider|Note that|Applying|Substituting)\b[,:\s]|[-*•]\s|\d+[.)]\s)/i;
 
 let ticker = null;
 let tickerData = null;
+
+// Extrai etapas do raciocínio dentro do <think>. Retorna [{title, active}]
+function extractSteps(thinkText, thinkClosed){
+  if (!thinkText || thinkText.trim().length === 0) return [];
+  // Divide por quebras naturais: newline, fim de sentença (.!?)
+  const raw = thinkText
+    .split(/(?:\n+|(?<=[.!?])\s+)/)
+    .map(s => s.trim())
+    .filter(s => s.length > 2);
+  if (raw.length === 0) return [];
+  // Agrupa: cada sentença com marcador começa novo passo; seguintes se juntam ao passo atual até vir outro marcador
+  const steps = [];
+  for (const s of raw) {
+    const isMarker = STEP_MARKERS_RE.test(s);
+    if (isMarker || steps.length === 0) {
+      steps.push(s);
+    } else {
+      // Continua o passo anterior (mas mostra só o cabeçalho para não poluir)
+      steps[steps.length - 1] = steps[steps.length - 1]; // no-op — mantém título curto
+    }
+  }
+  // Marca o último como ativo se o <think> ainda está aberto
+  return steps.map((title, i) => {
+    const active = !thinkClosed && i === steps.length - 1;
+    const short = title.length > 110 ? title.slice(0, 110).trim() + '…' : title;
+    return { title: short, active };
+  });
+}
+
+const STEP_DONE = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const STEP_ACTIVE = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
+
+function renderSteps(steps){
+  if (steps.length === 0) {
+    tpSteps.className = 'tp-steps empty';
+    tpSteps.textContent = 'Aguardando primeiro passo do raciocínio…';
+    return;
+  }
+  tpSteps.className = 'tp-steps';
+  const shouldScroll = (tpSteps.scrollTop + tpSteps.clientHeight + 10) >= tpSteps.scrollHeight;
+  tpSteps.innerHTML = steps.map(s => `
+    <div class="step ${s.active ? 'active' : 'done'}">
+      <span class="mk">${s.active ? STEP_ACTIVE : STEP_DONE}</span>
+      <span class="tx">${escapeText(s.title)}</span>
+    </div>`).join('');
+  if (shouldScroll) tpSteps.scrollTop = tpSteps.scrollHeight;
+}
+function escapeText(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function startTicker(state){
   tickerData = state;
@@ -667,50 +694,10 @@ function stopTicker(){
   ticker = null;
 }
 
-function buildEcgPath(){
-  // Cada slot ocupa perSlot unidades SVG. O "pico" (QRS-like) sobe rápido e desce com pequeno overshoot.
-  const perSlot = ECG_W / ECG_SLOTS;
-  const parts = [`M 0 ${ECG_BASELINE}`];
-  for (let i = 0; i < ECG_SLOTS; i++) {
-    const x = i * perSlot;
-    const count = ecgBuffer[i];
-    if (count === 0) {
-      parts.push(`L ${(x + perSlot).toFixed(2)} ${ECG_BASELINE}`);
-    } else {
-      // Altura do pico ~ count (limite baseline-3)
-      const h = Math.min(ECG_BASELINE - 3, 6 + count * 6);
-      parts.push(`L ${(x + perSlot * 0.15).toFixed(2)} ${ECG_BASELINE}`);
-      parts.push(`L ${(x + perSlot * 0.30).toFixed(2)} ${(ECG_BASELINE + h * 0.3).toFixed(2)}`);   // Q dip
-      parts.push(`L ${(x + perSlot * 0.45).toFixed(2)} ${(ECG_BASELINE - h).toFixed(2)}`);         // R peak
-      parts.push(`L ${(x + perSlot * 0.60).toFixed(2)} ${(ECG_BASELINE + h * 0.25).toFixed(2)}`);  // S undershoot
-      parts.push(`L ${(x + perSlot * 0.85).toFixed(2)} ${ECG_BASELINE}`);
-      parts.push(`L ${(x + perSlot).toFixed(2)} ${ECG_BASELINE}`);
-    }
-  }
-  return parts.join(' ');
-}
-
 function updatePanel(){
   const d = tickerData; if (!d) return;
   const now = performance.now();
   const elapsed = (now - d.t0) / 1000;
-
-  // Rola o buffer se ja passou 50ms desde o ultimo roll
-  if (ecgLastRoll === 0) ecgLastRoll = now - ECG_SLOT_MS;
-  while (now - ecgLastRoll >= ECG_SLOT_MS) {
-    ecgBuffer.shift();
-    ecgBuffer.push(0);
-    ecgLastRoll += ECG_SLOT_MS;
-  }
-  // Adiciona tokens novos ao slot atual (99) baseado nos timestamps ainda nao contados
-  const slotStart = ecgLastRoll;
-  const inSlot = d.timestamps.filter(ts => ts >= slotStart && ts < now).length;
-  ecgBuffer[ECG_SLOTS - 1] = inSlot;
-
-  // Desenha ECG
-  const path = buildEcgPath();
-  ecgTrace.setAttribute('d', path);
-  ecgFill.setAttribute('d', path + ` L ${ECG_W} ${ECG_H} L 0 ${ECG_H} Z`);
 
   // Contadores
   tpCount.textContent = d.total;
@@ -725,28 +712,33 @@ function updatePanel(){
 
   // Fase (raciocinando dentro de <think>, escrevendo depois)
   const content = d.contentFn();
-  const inThink = /<think>[\s\S]*$/.test(content) && !/<\/think>/.test(content);
-  const thinkCls = inThink ? 'raciocinando' : '';
+  const hasOpen = /<think>/i.test(content);
+  const hasClose = /<\/think>/i.test(content);
+  const inThink = hasOpen && !hasClose;
   tpPhase.className = 'tp-phase ' + (inThink ? 'raciocinando' : 'escrevendo');
-  tpPhaseText.textContent = inThink ? 'Raciocinando' : (/<\/think>/.test(content) || tutorMode && d.total > 0) ? 'Escrevendo resposta' : 'Escrevendo';
-  ecgTrace.className.baseVal = 'trace' + (inThink ? ' raciocinando' : '');
-  ecgFill.className.baseVal = 'fill' + (inThink ? ' raciocinando' : '');
-  ecgPulse.className.baseVal = 'pulse' + (inThink ? ' raciocinando' : '');
+  tpPhaseText.textContent = inThink ? 'Raciocinando' : (hasClose || (tutorMode && d.total > 0)) ? 'Escrevendo resposta' : 'Escrevendo';
 
-  // Nota
-  tpNote.textContent = `${elapsed.toFixed(1)}s decorridos · janela 50ms · pico = rajada de tokens · linha plana = modelo pausando`;
+  // Etapas: extraídas do conteúdo do <think>
+  if (hasOpen) {
+    const m = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
+    const thinkText = m ? m[1] : '';
+    const steps = extractSteps(thinkText, hasClose);
+    renderSteps(steps);
+  } else {
+    // Sem <think> — mostra apenas indicador de que está escrevendo direto
+    tpSteps.className = 'tp-steps empty';
+    tpSteps.textContent = tutorMode ? 'O modelo pulou o <think> — respondendo direto.' : 'Sem raciocínio explícito nesta resposta.';
+  }
+
+  // Nota curta e útil
+  tpNote.textContent = `${elapsed.toFixed(1)}s decorridos${inThink ? ' · raciocinando' : ''}`;
 }
 
 function showThinkingPanel(){
   thinkingPanel.classList.add('show');
-  // Reset ECG
-  ecgBuffer = new Array(ECG_SLOTS).fill(0);
-  ecgLastRoll = 0;
-  ecgTrace.setAttribute('d', `M 0 ${ECG_BASELINE} L ${ECG_W} ${ECG_BASELINE}`);
-  ecgFill.setAttribute('d', `M 0 ${ECG_BASELINE} L ${ECG_W} ${ECG_BASELINE} L ${ECG_W} ${ECG_H} L 0 ${ECG_H} Z`);
-  ecgTrace.className.baseVal = 'trace';
-  ecgFill.className.baseVal = 'fill';
-  ecgPulse.className.baseVal = 'pulse';
+  // Reset timeline
+  tpSteps.className = 'tp-steps empty';
+  tpSteps.textContent = 'Aguardando primeiro passo do raciocínio…';
   tpCount.textContent = '0'; tpTps.textContent = '0.0'; tpProgress.style.width = '0%';
   tpPhase.className = 'tp-phase escrevendo'; tpPhaseText.textContent = 'Aguardando 1º token…';
   tpNote.textContent = '';
