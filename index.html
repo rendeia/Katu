@@ -517,7 +517,8 @@ btnMemClear.onclick = async () => {
 };
 
 const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.'
-  + '\n\nCÁLCULOS: você não é confiável de cabeça para aritmética, porcentagem, conversão de unidades, datas ou contagem exata. Sempre que a resposta depender de um cálculo desses, NÃO calcule mentalmente — escreva um bloco ```calc contendo código JavaScript que atribua o valor final à variável `resultado`, e pare de escrever IMEDIATAMENTE depois de fechar o bloco com ```. O ambiente vai executar o código e te devolver o resultado; só então continue a resposta a partir dele, sem repetir o bloco de código. Exemplo: ```calc\nconst resultado = 84390 * 0.175;\n```';
+  + '\n\nCÁLCULOS: você não é confiável de cabeça para aritmética, porcentagem, conversão de unidades, datas ou contagem exata. Sempre que a resposta depender de um cálculo desses, NÃO calcule mentalmente — escreva um bloco ```calc contendo código JavaScript que atribua o valor final à variável `resultado`, e pare de escrever IMEDIATAMENTE depois de fechar o bloco com ```. O ambiente vai executar o código e te devolver o resultado; só então continue a resposta a partir dele, sem repetir o bloco de código. Exemplo: ```calc\nconst resultado = 84390 * 0.175;\n```'
+  + '\n\nATENÇÃO com números dentro do bloco ```calc: JavaScript usa PONTO como separador decimal e NÃO usa separador de milhar. NUNCA escreva vírgula dentro de um número em código (errado: `84,39`; certo: `84.39`) — isso quebra o código. Se o valor no texto em português usa formatação BR (ponto=milhar, vírgula=decimal), converta antes de escrever o código: "84.390" (BR) vira `84390` em JS; "17,5%" (BR) vira `0.175` em JS.';
 const SYSTEM_PROMPT_TUTOR = SYSTEM_PROMPT_BASE + '\n\nIMPORTANTE: Antes de dar a resposta final, sempre pense passo a passo dentro de um bloco <think>...</think>. Explique seu raciocínio, considere hipóteses e verifique. SÓ DEPOIS de fechar o </think>, escreva a resposta final para o usuário de forma clara e curta.';
 
 function currentSystemPrompt(){ return tutorMode ? SYSTEM_PROMPT_TUTOR : SYSTEM_PROMPT_BASE; }
@@ -1276,7 +1277,13 @@ async function generateDraftText(apiMessages, temperature, maxTokens){
 }
 
 send.onclick = async () => {
-  if (streaming) { abortCtl?.abort(); return; }
+  if (streaming) {
+    abortCtl?.abort();
+    // abort() só para a gente de LER o stream — sem isso o motor continua gerando
+    // sozinho (segurando o lock do modelo) até bater o max_tokens.
+    engine?.interruptGenerate();
+    return;
+  }
   const text = input.value.trim();
   if (!text || !engine) return;
   let c = current();
@@ -1398,6 +1405,12 @@ send.onclick = async () => {
         if (CALC_BLOCK_RE.test(content.slice(roundStartLen))) { hitCalc = true; break; }
       }
       if (abortCtl.signal.aborted) break;
+      if (hitCalc) {
+        // Corta a geração de verdade no motor (não só a leitura do stream) — senão o
+        // modelo continua gerando sozinho em segundo plano segurando o lock, e a próxima
+        // rodada fica travada esperando ele terminar (só liberaria perto do max_tokens).
+        await engine.interruptGenerate();
+      }
       if (!hitCalc || round >= MAX_CALC_ROUNDS) break;
 
       round++;
