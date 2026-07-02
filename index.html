@@ -9,12 +9,13 @@
     --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --border:#2a2f3a;
     --text:#e7e9ee; --muted:#8e9297; --accent:#7c5cff; --accent2:#6a4cf0;
     --userbg:#232833; --code:#0b0d12; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+    --think:#f4b942; --think2:#e0951a;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
     font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14.5px}
 
-  /* Layout: sidebar + main */
+  /* Layout */
   #app{display:flex;height:100vh}
   #sidebar{width:260px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:margin-left .2s}
   #sidebar.hidden{margin-left:-260px}
@@ -31,7 +32,7 @@
   #convList .conv:hover{background:var(--panel2)}
   #convList .conv.active{background:var(--panel2);border-left:2px solid var(--accent);padding-left:8px}
   #convList .conv .title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #convList .conv .title-input{flex:1;background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;color:var(--text);font-size:13px;font-family:inherit;width:100%}
+  #convList .conv .title-input{flex:1;background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;color:var(--text);font-size:13px;font-family:inherit}
   #convList .conv .title-input:focus{outline:none}
   #convList .conv .actions{display:flex;gap:2px}
   #convList .conv .actions button{opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;border-radius:4px;display:flex}
@@ -43,15 +44,17 @@
 
   #main{flex:1;display:flex;flex-direction:column;min-width:0}
   header{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border)}
-  header .iconbtn{background:none;border:none;color:var(--text);cursor:pointer;padding:5px;display:flex;border-radius:6px}
+  header .iconbtn{background:none;border:none;color:var(--text);cursor:pointer;padding:5px;display:flex;border-radius:6px;position:relative}
   header .iconbtn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
   header .iconbtn:hover{background:var(--panel2);color:var(--accent)}
+  header .iconbtn.on{color:var(--think)}
+  header .iconbtn.on::after{content:"";position:absolute;bottom:2px;right:2px;width:6px;height:6px;background:var(--think);border-radius:50%;border:1px solid var(--panel)}
   header .headBrand{font-weight:600;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   header .status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}
   header .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
   header .dot.ok{background:var(--ok)} header .dot.load{background:var(--warn)} header .dot.err{background:var(--bad)}
 
-  /* Splash pré-carga */
+  /* Splash */
   #splash{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:18px;overflow-y:auto}
   #splash h2{margin:0;font-size:22px}
   #splash p{margin:0;color:var(--muted);max-width:520px;line-height:1.55}
@@ -66,27 +69,53 @@
   #splash .err{color:var(--bad);background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35)}
 
   /* Chat */
-  #chat{flex:1;overflow-y:auto;padding:20px 20px 10px}
+  #chatWrap{flex:1;overflow-y:auto;position:relative}
+  #chat{padding:20px 20px 10px}
   .msg{margin:14px 0;max-width:820px;margin-left:auto;margin-right:auto}
   .msg .role{font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;display:flex;align-items:center;gap:6px}
-  .msg .copy{background:none;border:1px solid transparent;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit;display:flex;align-items:center;gap:4px;margin-left:auto;opacity:0;transition:opacity .15s}
-  .msg:hover .copy{opacity:1}
-  .msg .copy:hover{border-color:var(--border);color:var(--accent)}
-  .msg .copy.copied{color:var(--ok);border-color:var(--ok)}
-  .msg .copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .msg .msg-actions{margin-left:auto;display:flex;gap:4px}
+  .msg .msg-actions button{background:none;border:1px solid transparent;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px;font-family:inherit;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .15s}
+  .msg:hover .msg-actions button{opacity:1}
+  .msg .msg-actions button:hover{border-color:var(--border);color:var(--accent)}
+  .msg .msg-actions button.copied{color:var(--ok);border-color:var(--ok)}
+  .msg .msg-actions button svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .bubble{line-height:1.65}
   .msg.user .bubble{background:var(--userbg);border:1px solid var(--border);border-radius:10px;padding:11px 14px}
   .bubble p{margin:0 0 10px}.bubble p:last-child{margin-bottom:0}
   .bubble code{background:var(--code);padding:2px 5px;border-radius:4px;font-size:13px;font-family:Consolas,Monaco,monospace}
   .bubble pre{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;margin:8px 0}
   .bubble pre code{background:none;padding:0}
-  .bubble details.think{margin:6px 0 10px;border-left:2px solid var(--border);padding:2px 0 2px 10px;font-size:13px;color:var(--muted)}
-  .bubble details.think summary{cursor:pointer;color:var(--accent);font-weight:600;padding:3px 0;list-style:none;user-select:none}
+  .bubble details.think{margin:6px 0 10px;border-left:2px solid var(--think);padding:2px 0 2px 10px;font-size:13px;color:var(--muted);background:rgba(244,185,66,.05);border-radius:0 6px 6px 0}
+  .bubble details.think summary{cursor:pointer;color:var(--think);font-weight:600;padding:3px 6px;list-style:none;user-select:none}
   .bubble details.think summary::-webkit-details-marker{display:none}
   .bubble details.think summary::before{content:"▸ ";color:var(--muted);font-weight:normal}
   .bubble details.think[open] summary::before{content:"▾ "}
-  .bubble details.think div{padding:6px 0 2px;line-height:1.5;white-space:pre-wrap}
+  .bubble details.think div{padding:6px 6px 4px;line-height:1.5;white-space:pre-wrap}
   .bubble .stats{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+
+  /* Painel do pensamento (sticky) */
+  #thinkingPanel{position:sticky;top:0;z-index:5;padding:10px 20px;background:linear-gradient(to bottom, var(--bg), rgba(15,17,21,.85));border-bottom:1px solid var(--border);display:none}
+  #thinkingPanel.show{display:block;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .tp{max-width:820px;margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .tp-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .tp-phase{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--panel2);border:1px solid var(--border)}
+  .tp-phase.raciocinando{color:var(--think);border-color:var(--think);background:rgba(244,185,66,.08)}
+  .tp-phase.escrevendo{color:var(--accent);border-color:var(--accent);background:rgba(124,92,255,.08)}
+  .tp-phase .pulse{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+  .tp-count{font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+  .tp-count b{color:var(--text);font-size:15px;font-weight:700}
+  .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+  .tp-tps b{color:var(--text);font-size:14px;font-weight:600}
+  .tp-eq{display:flex;align-items:flex-end;gap:2px;height:28px;padding:2px 0;margin-bottom:6px}
+  .tp-eq .bar{flex:1;background:var(--panel2);border-radius:1.5px;min-height:2px;transition:height .18s ease-out,background .3s}
+  .tp-eq .bar.slow{background:var(--bad)}
+  .tp-eq .bar.mid{background:var(--warn)}
+  .tp-eq .bar.fast{background:var(--ok)}
+  .tp-progress{width:100%;height:3px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .tp-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s;width:0%}
+  .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace}
 
   /* Composer */
   #composer{padding:12px 20px 18px;border-top:1px solid var(--border);max-width:820px;margin:0 auto;width:100%}
@@ -101,13 +130,13 @@
   .empty{text-align:center;color:var(--muted);margin-top:15vh;padding:0 20px}
   .empty h2{margin:0 0 8px;color:var(--text);font-weight:600}
 
-  /* Modal (Configurações) */
-  #modalCfg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
-  #modalCfg.open{display:flex}
-  #modalCfg .m{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto}
-  #modalCfg .m-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
-  #modalCfg .m-h h3{margin:0;font-size:16px}
-  #modalCfg .m-b{padding:16px 20px}
+  /* Modal Config */
+  #modalCfg,#modalStats{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+  #modalCfg.open,#modalStats.open{display:flex}
+  #modalCfg .m,#modalStats .m{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto}
+  #modalCfg .m-h,#modalStats .m-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+  #modalCfg .m-h h3,#modalStats .m-h h3{margin:0;font-size:16px}
+  #modalCfg .m-b,#modalStats .m-b{padding:16px 20px}
   #modalCfg .field{margin-bottom:16px}
   #modalCfg .field label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
   #modalCfg .field .desc{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4}
@@ -120,11 +149,18 @@
   #modalCfg .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   #modalCfg .btn:hover{border-color:var(--accent)}
 
+  /* Modal Stats (replay) */
+  #modalStats .st-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+  #modalStats .st-row:last-child{border-bottom:none}
+  #modalStats .st-row b{color:var(--text);font-family:ui-monospace,Consolas,monospace}
+  #modalStats .st-cat{margin:14px 0 8px;color:var(--muted);font-size:11px;letter-spacing:.4px;text-transform:uppercase;font-weight:700}
+
   /* Toast */
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:9px 16px;border-radius:9px;font-size:13.5px;z-index:9999;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
 
   @media (max-width: 720px) {
     #sidebar{position:absolute;z-index:10;height:100%;box-shadow:2px 0 12px rgba(0,0,0,.4)}
+    .tp-tps{display:none}
   }
 </style>
 </head>
@@ -150,6 +186,9 @@
         <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
       <div class="headBrand" id="topTitle">Nova conversa</div>
+      <button class="iconbtn" id="btnTutor" title="Modo tutor — força o Katu a pensar passo a passo">
+        <svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4 3 3 0 0 0-2 5 3 3 0 0 0 1 5 3 3 0 0 0 5 1 3 3 0 0 0 5-1 3 3 0 0 0 1-5 3 3 0 0 0-2-5 4 4 0 0 0-4-4z"/></svg>
+      </button>
       <button class="iconbtn" id="btnExport" title="Exportar como Markdown">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
       </button>
@@ -159,7 +198,7 @@
       <div class="status"><span id="dot" class="dot"></span><span id="stTxt">iniciando…</span></div>
     </header>
 
-    <!-- Splash: carregamento do modelo -->
+    <!-- Splash -->
     <div id="splash">
       <h2>🧠 Katu Mirim 2.0</h2>
       <p>Assistente de raciocínio, rodando <b>direto no seu navegador</b> via WebGPU.
@@ -186,8 +225,22 @@
          Depois fica no cache do navegador, offline pra sempre.</p>
     </div>
 
-    <!-- Chat -->
-    <div id="chat" style="display:none"></div>
+    <!-- Área do chat com painel sticky -->
+    <div id="chatWrap" style="display:none">
+      <div id="thinkingPanel">
+        <div class="tp">
+          <div class="tp-row">
+            <div class="tp-phase escrevendo" id="tpPhase"><span class="pulse"></span><span id="tpPhaseText">Escrevendo</span></div>
+            <div class="tp-count"><b id="tpCount">0</b> tokens</div>
+            <div class="tp-tps"><b id="tpTps">0.0</b> tok/s</div>
+          </div>
+          <div class="tp-eq" id="tpEq"></div>
+          <div class="tp-progress"><div id="tpProgress"></div></div>
+          <div class="tp-note" id="tpNote"></div>
+        </div>
+      </div>
+      <div id="chat"></div>
+    </div>
     <div id="composer" style="display:none">
       <div class="row">
         <textarea id="input" rows="1" placeholder="Pergunte algo…"></textarea>
@@ -195,7 +248,7 @@
           <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </div>
-      <div class="hint">Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.</div>
+      <div class="hint" id="composerHint">Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.</div>
     </div>
   </div>
 </div>
@@ -231,6 +284,17 @@
   </div>
 </div>
 
+<!-- Modal: Stats da resposta -->
+<div id="modalStats">
+  <div class="m">
+    <div class="m-h">
+      <h3>📊 Estatísticas do raciocínio</h3>
+      <button class="iconbtn" id="statsClose"><svg viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:2;width:18px;height:18px"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="m-b" id="statsBody"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -259,13 +323,18 @@ import * as webllm from './vendor/webllm/web-llm.js';
 const $ = id => document.getElementById(id);
 const dot = $('dot'), stTxt = $('stTxt'), log = $('log'), bar = $('bar');
 const loadBtn = $('loadBtn'), prep = $('prep'), splash = $('splash');
-const chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
+const chatWrap = $('chatWrap'), chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 const sidebar = $('sidebar'), toggleSidebar = $('toggleSidebar'), newConvBtn = $('newConv'), convList = $('convList');
 const searchInput = $('searchInput');
-const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg');
+const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg'), btnTutor = $('btnTutor');
 const modalCfg = $('modalCfg'), cfgClose = $('cfgClose'), cfgReset = $('cfgReset'), cfgSave = $('cfgSave');
 const cfgTemp = $('cfgTemp'), cfgTopP = $('cfgTopP'), cfgMax = $('cfgMax'), vTemp = $('vTemp'), vTopP = $('vTopP');
+const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $('statsBody');
 const toast = $('toast');
+const thinkingPanel = $('thinkingPanel');
+const tpPhase = $('tpPhase'), tpPhaseText = $('tpPhaseText'), tpCount = $('tpCount'), tpTps = $('tpTps');
+const tpEq = $('tpEq'), tpProgress = $('tpProgress'), tpNote = $('tpNote');
+const composerHint = $('composerHint');
 
 // ============ Toast ============
 function showToast(msg){
@@ -273,7 +342,28 @@ function showToast(msg){
   clearTimeout(toast._h); toast._h = setTimeout(() => toast.style.opacity = '0', 2200);
 }
 
-// ============ Configurações (temperatura, top_p, max_tokens) ============
+// ============ Modo Tutor ============
+let tutorMode = localStorage.getItem('katu.tutor') !== '0';   // default ligado
+function refreshTutorButton(){
+  btnTutor.classList.toggle('on', tutorMode);
+  btnTutor.title = tutorMode ? 'Modo tutor LIGADO — o Katu pensa passo a passo (clique para desligar)' : 'Modo tutor DESLIGADO (clique para ligar)';
+  composerHint.textContent = tutorMode
+    ? 'Modo tutor: o Katu vai pensar antes de responder — o raciocínio aparece num bloco 💭 colapsável.'
+    : 'Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.';
+}
+btnTutor.onclick = () => {
+  tutorMode = !tutorMode;
+  localStorage.setItem('katu.tutor', tutorMode ? '1' : '0');
+  refreshTutorButton();
+  showToast(tutorMode ? 'Modo tutor ligado' : 'Modo tutor desligado');
+};
+
+const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.';
+const SYSTEM_PROMPT_TUTOR = SYSTEM_PROMPT_BASE + '\n\nIMPORTANTE: Antes de dar a resposta final, sempre pense passo a passo dentro de um bloco <think>...</think>. Explique seu raciocínio, considere hipóteses e verifique. SÓ DEPOIS de fechar o </think>, escreva a resposta final para o usuário de forma clara e curta.';
+
+function currentSystemPrompt(){ return tutorMode ? SYSTEM_PROMPT_TUTOR : SYSTEM_PROMPT_BASE; }
+
+// ============ Config (temp, top_p, max_tokens) ============
 const CFG_DEFAULT = { temperature: 0.6, top_p: 0.9, max_tokens: 2048 };
 let cfg = { ...CFG_DEFAULT };
 try { const s = JSON.parse(localStorage.getItem('katu.config') || 'null'); if (s) cfg = { ...CFG_DEFAULT, ...s }; } catch(e){}
@@ -303,15 +393,8 @@ cfgSave.onclick = () => {
   showToast('Configurações salvas');
 };
 
-// ============ Estado + persistência de conversas ============
-const SYSTEM_PROMPT = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia (base Llama-3.2-3B-Instruct). Rode no navegador via WebGPU, 100% local. Para problemas que exigem análise ou passos, pense passo a passo antes de dar a resposta final. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.';
-
-const state = {
-  conversations: [],
-  currentId: null,
-  filter: ''
-};
-
+// ============ Estado de conversas ============
+const state = { conversations: [], currentId: null, filter: '' };
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function loadState(){
   try {
@@ -329,7 +412,7 @@ function saveState(){
 function current(){ return state.conversations.find(c => c.id === state.currentId) || null; }
 
 function newConversation(){
-  const c = { id: uid(), title: 'Nova conversa', messages: [{ role:'system', content: SYSTEM_PROMPT }], updatedAt: Date.now() };
+  const c = { id: uid(), title: 'Nova conversa', messages: [{ role:'system', content: currentSystemPrompt() }], updatedAt: Date.now() };
   state.conversations.unshift(c);
   state.currentId = c.id;
   saveState(); renderSidebar(); renderChat();
@@ -374,8 +457,7 @@ function exportConversation(id){
   for (const m of c.messages) {
     if (m.role === 'system') continue;
     const who = m.role === 'user' ? '## 👤 Você' : '## 🧠 Katu';
-    parts.push(who);
-    parts.push(m.content.trim());
+    parts.push(who); parts.push(m.content.trim());
     if (m.stats) parts.push(`_${m.stats}_`);
     parts.push('');
   }
@@ -395,6 +477,8 @@ function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/
 function md(src){
   const pens = [];
   src = src.replace(/<think>([\s\S]*?)<\/think>/gi, (m, p) => { pens.push(p.trim()); return `@@THK${pens.length-1}@@`; });
+  // Também detecta <think> ainda ABERTO (durante streaming): tudo após <think> vira pensamento
+  src = src.replace(/<think>([\s\S]*)$/i, (m, p) => { pens.push(p.trim()); return `@@THK${pens.length-1}@@`; });
   src = src.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, l, c) => `<pre><code>${esc(c.replace(/\n$/,''))}</code></pre>`);
   src = esc(src);
   src = src.replace(/&lt;pre&gt;&lt;code&gt;([\s\S]*?)&lt;\/code&gt;&lt;\/pre&gt;/g, '<pre><code>$1</code></pre>');
@@ -404,7 +488,7 @@ function md(src){
   src = src.split(/\n{2,}/).map(p=>{ p=p.trim(); if(!p) return ''; if(/^<(pre|ul|ol|h\d)/.test(p)) return p; return '<p>'+p.replace(/\n/g,'<br>')+'</p>'; }).join('\n');
   src = src.replace(/@@THK(\d+)@@/g, (m,i) => {
     const t = pens[+i]||''; if (!t) return '';
-    return `<details class="think"><summary>💭 Pensamento</summary><div>${esc(t).replace(/\n/g,'<br>')}</div></details>`;
+    return `<details class="think" open><summary>💭 Pensamento</summary><div>${esc(t).replace(/\n/g,'<br>')}</div></details>`;
   });
   return src;
 }
@@ -413,6 +497,7 @@ function renderEmpty(){ chat.innerHTML = '<div class="empty"><h2>Como posso ajud
 
 const COPY_ICON = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const CHART_ICON = '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>';
 
 function renderChat(){
   const c = current();
@@ -420,24 +505,30 @@ function renderChat(){
   chat.innerHTML = c.messages.slice(1).map((m, i) => {
     const isU = m.role === 'user';
     const statsHTML = (!isU && m.stats) ? `<div class="stats">${esc(m.stats)}</div>` : '';
+    const chartBtn = (!isU && m.think) ? `<button class="chart" data-i="${i+1}" title="Ver estatísticas do raciocínio">${CHART_ICON}<span>Detalhes</span></button>` : '';
     const copyBtn = `<button class="copy" data-i="${i+1}" title="Copiar">${COPY_ICON}<span>Copiar</span></button>`;
     return `<div class="msg ${isU?'user':'assistant'}">
-      <div class="role">${isU?'Você':'Katu'}${copyBtn}</div>
+      <div class="role">${isU?'Você':'Katu'}<div class="msg-actions">${chartBtn}${copyBtn}</div></div>
       <div class="bubble">${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
     </div>`;
   }).join('');
   chat.querySelectorAll('.copy').forEach(btn => {
     btn.addEventListener('click', async () => {
       const idx = +btn.dataset.i;
-      const msg = c.messages[idx];
-      if (!msg) return;
+      const msg = c.messages[idx]; if (!msg) return;
       try {
-        // Remove <think> antes de copiar
         const clean = msg.content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
         await navigator.clipboard.writeText(clean);
         btn.classList.add('copied'); btn.innerHTML = CHECK_ICON + '<span>Copiado</span>';
         setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = COPY_ICON + '<span>Copiar</span>'; }, 1400);
       } catch (e) { showToast('Não consegui copiar: ' + (e.message||e)); }
+    });
+  });
+  chat.querySelectorAll('.chart').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.i;
+      const msg = c.messages[idx]; if (!msg?.think) return;
+      openStatsModal(msg.think);
     });
   });
   chat.scrollTop = chat.scrollHeight;
@@ -478,20 +569,16 @@ function renderSidebar(){
     el.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const id = el.dataset.id;
-      const c = state.conversations.find(x => x.id === id);
-      if (!c) return;
-      const input = document.createElement('input');
-      input.type = 'text'; input.value = c.title; input.className = 'title-input';
-      el.replaceWith(input); input.focus(); input.select();
-      const finish = (save) => {
-        if (save) renameConversation(id, input.value);
-        else renderSidebar();
-      };
-      input.addEventListener('keydown', (ev) => {
+      const c = state.conversations.find(x => x.id === id); if (!c) return;
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = c.title; inp.className = 'title-input';
+      el.replaceWith(inp); inp.focus(); inp.select();
+      const finish = (save) => { if (save) renameConversation(id, inp.value); else renderSidebar(); };
+      inp.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
         else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
       });
-      input.addEventListener('blur', () => finish(true));
+      inp.addEventListener('blur', () => finish(true));
     });
   });
   convList.querySelectorAll('.del').forEach(el => {
@@ -502,11 +589,113 @@ function renderSidebar(){
   });
 }
 
-// ============ Busca ============
-searchInput.addEventListener('input', () => {
-  state.filter = searchInput.value;
-  renderSidebar();
-});
+searchInput.addEventListener('input', () => { state.filter = searchInput.value; renderSidebar(); });
+
+// ============ Modal de stats (Detalhes do raciocínio) ============
+function openStatsModal(think){
+  const rows = [];
+  rows.push('<div class="st-cat">Geral</div>');
+  rows.push(`<div class="st-row"><span>Tokens totais</span><b>${think.total}</b></div>`);
+  rows.push(`<div class="st-row"><span>Tempo total</span><b>${think.totalTime.toFixed(1)}s</b></div>`);
+  rows.push(`<div class="st-row"><span>Velocidade média</span><b>${think.avgTps.toFixed(1)} tok/s</b></div>`);
+  rows.push(`<div class="st-row"><span>Pico</span><b>${think.maxTps.toFixed(1)} tok/s</b></div>`);
+  rows.push(`<div class="st-row"><span>Mínimo</span><b>${think.minTps.toFixed(1)} tok/s</b></div>`);
+  if (think.thinkTokens > 0) {
+    rows.push('<div class="st-cat">Raciocínio (dentro de &lt;think&gt;)</div>');
+    rows.push(`<div class="st-row"><span>Tokens de raciocínio</span><b>${think.thinkTokens}</b></div>`);
+    rows.push(`<div class="st-row"><span>Tempo raciocinando</span><b>${think.thinkTime.toFixed(1)}s</b></div>`);
+    rows.push('<div class="st-cat">Resposta final</div>');
+    rows.push(`<div class="st-row"><span>Tokens de resposta</span><b>${think.respTokens}</b></div>`);
+    rows.push(`<div class="st-row"><span>Tempo escrevendo</span><b>${think.respTime.toFixed(1)}s</b></div>`);
+    const ratio = think.thinkTokens / Math.max(1, think.respTokens);
+    rows.push(`<div class="st-row"><span>Proporção raciocínio : resposta</span><b>${ratio.toFixed(1)} : 1</b></div>`);
+  }
+  statsBody.innerHTML = rows.join('');
+  modalStats.classList.add('open');
+}
+statsClose.onclick = () => modalStats.classList.remove('open');
+modalStats.addEventListener('click', e => { if (e.target === modalStats) modalStats.classList.remove('open'); });
+
+// ============ Painel do pensamento (ao vivo) ============
+// Cria 20 barrinhas no equalizador
+for (let i = 0; i < 20; i++) { const b = document.createElement('div'); b.className = 'bar'; b.style.height = '2px'; tpEq.appendChild(b); }
+const EQ_BARS = tpEq.querySelectorAll('.bar');
+const EQ_WINDOWS = 20;
+const EQ_WINDOW_MS = 250;   // cada barra = 250ms; total = 5s
+
+let ticker = null;         // requestAnimationFrame handle
+let tickerData = null;
+
+function startTicker(state){
+  tickerData = state;
+  const step = () => {
+    if (!tickerData || !tickerData.active) return;
+    updatePanel();
+    ticker = requestAnimationFrame(step);
+  };
+  ticker = requestAnimationFrame(step);
+}
+function stopTicker(){
+  if (ticker) cancelAnimationFrame(ticker);
+  ticker = null;
+}
+
+function updatePanel(){
+  const d = tickerData; if (!d) return;
+  const now = performance.now();
+  const elapsed = (now - d.t0) / 1000;
+  // Equalizador
+  const buckets = new Array(EQ_WINDOWS).fill(0);
+  const startWin = now - EQ_WINDOWS * EQ_WINDOW_MS;
+  for (const ts of d.timestamps) {
+    if (ts < startWin) continue;
+    const bi = Math.min(EQ_WINDOWS - 1, Math.floor((ts - startWin) / EQ_WINDOW_MS));
+    buckets[bi]++;
+  }
+  // altura: max de tokens/janela ~5 = 100%
+  const maxHeight = 26;
+  buckets.forEach((count, i) => {
+    const bar = EQ_BARS[i];
+    const h = Math.max(2, Math.min(maxHeight, count * 5));
+    bar.style.height = h + 'px';
+    // Cor: baseada em tok/s equivalente
+    const tps = count * (1000 / EQ_WINDOW_MS);
+    bar.className = 'bar ' + (tps >= 8 ? 'fast' : tps >= 3 ? 'mid' : count > 0 ? 'slow' : '');
+  });
+  // Contadores
+  tpCount.textContent = d.total;
+  const recentWin = 2000; // 2s para "tps atual"
+  const recentTokens = d.timestamps.filter(ts => ts >= now - recentWin).length;
+  const recentTps = recentTokens / (Math.min(elapsed, recentWin/1000) || 1);
+  tpTps.textContent = recentTps.toFixed(1);
+  // Progresso
+  const pct = Math.min(100, (d.total / (cfg.max_tokens || 2048)) * 100);
+  tpProgress.style.width = pct.toFixed(1) + '%';
+  // Fase
+  const content = d.contentFn();
+  const inThink = /<think>[\s\S]*$/.test(content) && !/<\/think>/.test(content);
+  if (inThink) {
+    tpPhase.className = 'tp-phase raciocinando';
+    tpPhaseText.textContent = 'Raciocinando';
+  } else if (/<\/think>/.test(content) || tutorMode && d.total > 0) {
+    tpPhase.className = 'tp-phase escrevendo';
+    tpPhaseText.textContent = 'Escrevendo resposta';
+  } else {
+    tpPhase.className = 'tp-phase escrevendo';
+    tpPhaseText.textContent = 'Escrevendo';
+  }
+  // Nota
+  tpNote.textContent = `${elapsed.toFixed(1)}s decorridos · janela ${EQ_WINDOW_MS}ms/barra · verde ≥ 8 · amarelo 3-8 · vermelho < 3 tok/s`;
+}
+
+function showThinkingPanel(){
+  thinkingPanel.classList.add('show');
+  EQ_BARS.forEach(b => { b.style.height = '2px'; b.className = 'bar'; });
+  tpCount.textContent = '0'; tpTps.textContent = '0.0'; tpProgress.style.width = '0%';
+  tpPhase.className = 'tp-phase escrevendo'; tpPhaseText.textContent = 'Aguardando 1º token…';
+  tpNote.textContent = '';
+}
+function hideThinkingPanel(){ thinkingPanel.classList.remove('show'); }
 
 // ============ Seletor de modelo ============
 const modelSel = $('modelSel');
@@ -528,7 +717,6 @@ function setStatus(txt, cls){ stTxt.textContent = txt; dot.className = 'dot ' + 
 function logLine(t){ log.textContent = t; }
 function showErr(msg){ prep.className = 'box err'; prep.innerHTML = '<b>Ops.</b><br>' + msg; loadBtn.style.display='none'; }
 
-// ============ Sidebar toggle e Nova conversa ============
 toggleSidebar.onclick = () => sidebar.classList.toggle('hidden');
 newConvBtn.onclick = () => { newConversation(); input?.focus(); };
 
@@ -568,11 +756,12 @@ loadBtn.onclick = async () => {
     });
     setStatus('modelo pronto', 'ok');
     splash.style.display = 'none';
-    chat.style.display = 'block';
+    chatWrap.style.display = 'block';
     composer.style.display = 'block';
     loadState();
     if (!state.conversations.length) newConversation();
     else { renderSidebar(); renderChat(); topTitle.textContent = current()?.title || 'Nova conversa'; }
+    refreshTutorButton();
     input.focus();
   } catch (e) {
     console.error(e);
@@ -597,6 +786,8 @@ send.onclick = async () => {
   if (!text || !engine) return;
   let c = current();
   if (!c) { newConversation(); c = current(); }
+  // Atualiza system prompt (caso tutor mudou)
+  if (c.messages[0]?.role === 'system') c.messages[0].content = currentSystemPrompt();
   c.messages.push({ role:'user', content: text });
   c.messages.push({ role:'assistant', content: '' });
   input.value = ''; input.style.height='auto';
@@ -606,7 +797,22 @@ send.onclick = async () => {
   saveState(); renderSidebar(); renderChat();
   setSendState(true);
   abortCtl = new AbortController();
-  let t0 = 0, nTok = 0;
+
+  // Painel de pensamento
+  showThinkingPanel();
+  const panelState = {
+    active: true,
+    t0: performance.now(),
+    total: 0,
+    timestamps: [],
+    contentFn: () => c.messages[idx].content
+  };
+  startTicker(panelState);
+
+  // Tracking pra estatisticas finais (marca transição <think> -> resposta)
+  let thinkTokens = 0, thinkStartTs = null, thinkEndTs = null;
+  let inThinkPhase = false;
+
   try {
     const stream = await engine.chat.completions.create({
       messages: c.messages.slice(0, -1),
@@ -619,28 +825,68 @@ send.onclick = async () => {
       if (abortCtl.signal.aborted) break;
       const delta = chunk.choices?.[0]?.delta?.content || '';
       if (delta) {
-        if (!t0) t0 = performance.now();
-        nTok++;
+        const now = performance.now();
+        panelState.timestamps.push(now);
+        panelState.total++;
         c.messages[idx].content += delta;
+        // Detecta fase
+        const content = c.messages[idx].content;
+        const hasOpen = /<think>/i.test(content);
+        const hasClose = /<\/think>/i.test(content);
+        if (hasOpen && !hasClose) {
+          if (!inThinkPhase) { inThinkPhase = true; thinkStartTs = now; }
+          thinkTokens++;
+        } else if (hasOpen && hasClose && inThinkPhase) {
+          inThinkPhase = false; thinkEndTs = now;
+        }
         renderChat();
       }
     }
   } catch (e) {
     if (e.name !== 'AbortError') c.messages[idx].content += '\n\nErro: ' + (e.message||e);
   } finally {
-    if (t0 && nTok > 0) {
-      const dt = (performance.now() - t0) / 1000;
-      const tps = (nTok / dt).toFixed(1);
-      let officialStats = '';
-      try {
-        const s = await engine.runtimeStatsText?.();
-        if (s) officialStats = ' · ' + s;
-      } catch(e) {}
-      const alerta = tps < 3 ? '  ⚠️ muito lento — WebGPU pode não estar ativo' : '';
-      c.messages[idx].stats = `⚡ ${tps} tok/s · ${nTok} tokens · ${dt.toFixed(1)}s${officialStats}${alerta}`;
+    panelState.active = false;
+    stopTicker();
+
+    // Estatísticas
+    const total = panelState.total;
+    const t0 = panelState.t0;
+    const tEnd = performance.now();
+    const totalTime = Math.max(0.001, (tEnd - t0) / 1000);
+    const avgTps = total / totalTime;
+    // pico e mínimo por janela 500ms
+    let maxTps = 0, minTps = Infinity;
+    if (total > 3) {
+      for (let ts = t0; ts <= tEnd; ts += 500) {
+        const inWin = panelState.timestamps.filter(x => x >= ts && x < ts + 500).length;
+        const tps = inWin * 2; // janela 500ms => *2 para tok/s
+        if (tps > maxTps) maxTps = tps;
+        if (tps < minTps && inWin > 0) minTps = tps;
+      }
+      if (minTps === Infinity) minTps = 0;
+    } else { maxTps = avgTps; minTps = avgTps; }
+
+    let officialStats = '';
+    try { const s = await engine.runtimeStatsText?.(); if (s) officialStats = ' · ' + s; } catch(e) {}
+    const alerta = avgTps < 3 ? '  ⚠️ muito lento — WebGPU pode não estar ativo' : '';
+    c.messages[idx].stats = `⚡ ${avgTps.toFixed(1)} tok/s · ${total} tokens · ${totalTime.toFixed(1)}s${officialStats}${alerta}`;
+
+    // Estatísticas do raciocínio (persistidas na mensagem)
+    if (total > 0) {
+      const thinkTime = (thinkStartTs && thinkEndTs) ? (thinkEndTs - thinkStartTs) / 1000 : 0;
+      const respTokens = Math.max(0, total - thinkTokens);
+      const respTime = Math.max(0, totalTime - thinkTime);
+      c.messages[idx].think = {
+        total, totalTime, avgTps, maxTps, minTps,
+        thinkTokens, thinkTime, respTokens, respTime
+      };
     }
+
     c.updatedAt = Date.now();
-    saveState(); renderChat(); renderSidebar();
+    saveState();
+    hideThinkingPanel();
+    renderChat();
+    renderSidebar();
     setSendState(false);
     input.focus();
   }
@@ -654,10 +900,18 @@ input.addEventListener('input', () => {
   input.style.height = Math.min(input.scrollHeight, 200) + 'px';
 });
 
-// Ao carregar, mostra as conversas existentes na sidebar (antes do modelo carregar)
+// Boot
+refreshTutorButton();
 loadState();
 renderSidebar();
 if (current()) topTitle.textContent = current().title;
+
+// CSS extra pro chart btn (inline pra manter tudo neste arquivo)
+const styleExtra = document.createElement('style');
+styleExtra.textContent = `
+  .msg .msg-actions .chart:hover{color:var(--think);border-color:var(--think)}
+`;
+document.head.appendChild(styleExtra);
 </script>
 </body>
 </html>
