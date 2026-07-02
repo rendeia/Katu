@@ -108,11 +108,18 @@
   .tp-count b{color:var(--text);font-size:15px;font-weight:700}
   .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
   .tp-tps b{color:var(--text);font-size:14px;font-weight:600}
-  .tp-eq{display:flex;align-items:flex-end;gap:2px;height:28px;padding:2px 0;margin-bottom:6px}
-  .tp-eq .bar{flex:1;background:var(--panel2);border-radius:1.5px;min-height:2px;transition:height .18s ease-out,background .3s}
-  .tp-eq .bar.slow{background:var(--bad)}
-  .tp-eq .bar.mid{background:var(--warn)}
-  .tp-eq .bar.fast{background:var(--ok)}
+  /* ECG (heartbeat) — substitui o equalizador */
+  .tp-ecg{width:100%;height:52px;display:block;margin-bottom:6px}
+  .tp-ecg .grid{stroke:var(--border);stroke-width:.5;stroke-dasharray:2 3;opacity:.35}
+  .tp-ecg .baseline{stroke:var(--panel2);stroke-width:.8;opacity:.5}
+  .tp-ecg .trace{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(124,92,255,.45));transition:stroke .3s}
+  .tp-ecg .trace.raciocinando{stroke:var(--think);filter:drop-shadow(0 0 3px rgba(244,185,66,.5))}
+  .tp-ecg .fill{fill:url(#ecgGrad);opacity:.15;stroke:none}
+  .tp-ecg .fill.raciocinando{fill:url(#ecgGradThink)}
+  .tp-ecg .pulse{fill:var(--accent);filter:drop-shadow(0 0 6px var(--accent));transition:fill .3s}
+  .tp-ecg .pulse.raciocinando{fill:var(--think);filter:drop-shadow(0 0 6px var(--think))}
+  @keyframes ecgPulse{0%,100%{r:2.5;opacity:1}50%{r:4.5;opacity:.55}}
+  .tp-ecg .pulse{animation:ecgPulse 1.2s ease-in-out infinite}
   .tp-progress{width:100%;height:3px;background:var(--panel2);border-radius:99px;overflow:hidden}
   .tp-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s;width:0%}
   .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace}
@@ -234,7 +241,25 @@
             <div class="tp-count"><b id="tpCount">0</b> tokens</div>
             <div class="tp-tps"><b id="tpTps">0.0</b> tok/s</div>
           </div>
-          <div class="tp-eq" id="tpEq"></div>
+          <svg class="tp-ecg" id="tpEcg" viewBox="0 0 300 52" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="ecgGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--accent)"/>
+                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ecgGradThink" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--think)"/>
+                <stop offset="100%" stop-color="var(--think)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <line class="grid" x1="0" y1="13" x2="300" y2="13"/>
+            <line class="grid" x1="0" y1="26" x2="300" y2="26"/>
+            <line class="grid" x1="0" y1="39" x2="300" y2="39"/>
+            <line class="baseline" x1="0" y1="26" x2="300" y2="26"/>
+            <path class="fill" id="ecgFill" d="M 0 26 L 300 26 L 300 26 L 0 26 Z"/>
+            <path class="trace" id="ecgTrace" d="M 0 26"/>
+            <circle class="pulse" id="ecgPulse" cx="298" cy="26" r="3"/>
+          </svg>
           <div class="tp-progress"><div id="tpProgress"></div></div>
           <div class="tp-note" id="tpNote"></div>
         </div>
@@ -333,7 +358,8 @@ const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $(
 const toast = $('toast');
 const thinkingPanel = $('thinkingPanel');
 const tpPhase = $('tpPhase'), tpPhaseText = $('tpPhaseText'), tpCount = $('tpCount'), tpTps = $('tpTps');
-const tpEq = $('tpEq'), tpProgress = $('tpProgress'), tpNote = $('tpNote');
+const tpEcg = $('tpEcg'), ecgTrace = $('ecgTrace'), ecgFill = $('ecgFill'), ecgPulse = $('ecgPulse');
+const tpProgress = $('tpProgress'), tpNote = $('tpNote');
 const composerHint = $('composerHint');
 
 // ============ Toast ============
@@ -617,13 +643,14 @@ statsClose.onclick = () => modalStats.classList.remove('open');
 modalStats.addEventListener('click', e => { if (e.target === modalStats) modalStats.classList.remove('open'); });
 
 // ============ Painel do pensamento (ao vivo) ============
-// Cria 20 barrinhas no equalizador
-for (let i = 0; i < 20; i++) { const b = document.createElement('div'); b.className = 'bar'; b.style.height = '2px'; tpEq.appendChild(b); }
-const EQ_BARS = tpEq.querySelectorAll('.bar');
-const EQ_WINDOWS = 20;
-const EQ_WINDOW_MS = 250;   // cada barra = 250ms; total = 5s
+// ECG heartbeat: buffer de 100 slots × 50ms = 5s de janela deslizante
+const ECG_SLOTS = 100;
+const ECG_SLOT_MS = 50;
+const ECG_W = 300, ECG_H = 52, ECG_BASELINE = 26;
+let ecgBuffer = new Array(ECG_SLOTS).fill(0);
+let ecgLastRoll = 0;
 
-let ticker = null;         // requestAnimationFrame handle
+let ticker = null;
 let tickerData = null;
 
 function startTicker(state){
@@ -640,57 +667,86 @@ function stopTicker(){
   ticker = null;
 }
 
+function buildEcgPath(){
+  // Cada slot ocupa perSlot unidades SVG. O "pico" (QRS-like) sobe rápido e desce com pequeno overshoot.
+  const perSlot = ECG_W / ECG_SLOTS;
+  const parts = [`M 0 ${ECG_BASELINE}`];
+  for (let i = 0; i < ECG_SLOTS; i++) {
+    const x = i * perSlot;
+    const count = ecgBuffer[i];
+    if (count === 0) {
+      parts.push(`L ${(x + perSlot).toFixed(2)} ${ECG_BASELINE}`);
+    } else {
+      // Altura do pico ~ count (limite baseline-3)
+      const h = Math.min(ECG_BASELINE - 3, 6 + count * 6);
+      parts.push(`L ${(x + perSlot * 0.15).toFixed(2)} ${ECG_BASELINE}`);
+      parts.push(`L ${(x + perSlot * 0.30).toFixed(2)} ${(ECG_BASELINE + h * 0.3).toFixed(2)}`);   // Q dip
+      parts.push(`L ${(x + perSlot * 0.45).toFixed(2)} ${(ECG_BASELINE - h).toFixed(2)}`);         // R peak
+      parts.push(`L ${(x + perSlot * 0.60).toFixed(2)} ${(ECG_BASELINE + h * 0.25).toFixed(2)}`);  // S undershoot
+      parts.push(`L ${(x + perSlot * 0.85).toFixed(2)} ${ECG_BASELINE}`);
+      parts.push(`L ${(x + perSlot).toFixed(2)} ${ECG_BASELINE}`);
+    }
+  }
+  return parts.join(' ');
+}
+
 function updatePanel(){
   const d = tickerData; if (!d) return;
   const now = performance.now();
   const elapsed = (now - d.t0) / 1000;
-  // Equalizador
-  const buckets = new Array(EQ_WINDOWS).fill(0);
-  const startWin = now - EQ_WINDOWS * EQ_WINDOW_MS;
-  for (const ts of d.timestamps) {
-    if (ts < startWin) continue;
-    const bi = Math.min(EQ_WINDOWS - 1, Math.floor((ts - startWin) / EQ_WINDOW_MS));
-    buckets[bi]++;
+
+  // Rola o buffer se ja passou 50ms desde o ultimo roll
+  if (ecgLastRoll === 0) ecgLastRoll = now - ECG_SLOT_MS;
+  while (now - ecgLastRoll >= ECG_SLOT_MS) {
+    ecgBuffer.shift();
+    ecgBuffer.push(0);
+    ecgLastRoll += ECG_SLOT_MS;
   }
-  // altura: max de tokens/janela ~5 = 100%
-  const maxHeight = 26;
-  buckets.forEach((count, i) => {
-    const bar = EQ_BARS[i];
-    const h = Math.max(2, Math.min(maxHeight, count * 5));
-    bar.style.height = h + 'px';
-    // Cor: baseada em tok/s equivalente
-    const tps = count * (1000 / EQ_WINDOW_MS);
-    bar.className = 'bar ' + (tps >= 8 ? 'fast' : tps >= 3 ? 'mid' : count > 0 ? 'slow' : '');
-  });
+  // Adiciona tokens novos ao slot atual (99) baseado nos timestamps ainda nao contados
+  const slotStart = ecgLastRoll;
+  const inSlot = d.timestamps.filter(ts => ts >= slotStart && ts < now).length;
+  ecgBuffer[ECG_SLOTS - 1] = inSlot;
+
+  // Desenha ECG
+  const path = buildEcgPath();
+  ecgTrace.setAttribute('d', path);
+  ecgFill.setAttribute('d', path + ` L ${ECG_W} ${ECG_H} L 0 ${ECG_H} Z`);
+
   // Contadores
   tpCount.textContent = d.total;
-  const recentWin = 2000; // 2s para "tps atual"
+  const recentWin = 2000;
   const recentTokens = d.timestamps.filter(ts => ts >= now - recentWin).length;
   const recentTps = recentTokens / (Math.min(elapsed, recentWin/1000) || 1);
   tpTps.textContent = recentTps.toFixed(1);
+
   // Progresso
   const pct = Math.min(100, (d.total / (cfg.max_tokens || 2048)) * 100);
   tpProgress.style.width = pct.toFixed(1) + '%';
-  // Fase
+
+  // Fase (raciocinando dentro de <think>, escrevendo depois)
   const content = d.contentFn();
   const inThink = /<think>[\s\S]*$/.test(content) && !/<\/think>/.test(content);
-  if (inThink) {
-    tpPhase.className = 'tp-phase raciocinando';
-    tpPhaseText.textContent = 'Raciocinando';
-  } else if (/<\/think>/.test(content) || tutorMode && d.total > 0) {
-    tpPhase.className = 'tp-phase escrevendo';
-    tpPhaseText.textContent = 'Escrevendo resposta';
-  } else {
-    tpPhase.className = 'tp-phase escrevendo';
-    tpPhaseText.textContent = 'Escrevendo';
-  }
+  const thinkCls = inThink ? 'raciocinando' : '';
+  tpPhase.className = 'tp-phase ' + (inThink ? 'raciocinando' : 'escrevendo');
+  tpPhaseText.textContent = inThink ? 'Raciocinando' : (/<\/think>/.test(content) || tutorMode && d.total > 0) ? 'Escrevendo resposta' : 'Escrevendo';
+  ecgTrace.className.baseVal = 'trace' + (inThink ? ' raciocinando' : '');
+  ecgFill.className.baseVal = 'fill' + (inThink ? ' raciocinando' : '');
+  ecgPulse.className.baseVal = 'pulse' + (inThink ? ' raciocinando' : '');
+
   // Nota
-  tpNote.textContent = `${elapsed.toFixed(1)}s decorridos · janela ${EQ_WINDOW_MS}ms/barra · verde ≥ 8 · amarelo 3-8 · vermelho < 3 tok/s`;
+  tpNote.textContent = `${elapsed.toFixed(1)}s decorridos · janela 50ms · pico = rajada de tokens · linha plana = modelo pausando`;
 }
 
 function showThinkingPanel(){
   thinkingPanel.classList.add('show');
-  EQ_BARS.forEach(b => { b.style.height = '2px'; b.className = 'bar'; });
+  // Reset ECG
+  ecgBuffer = new Array(ECG_SLOTS).fill(0);
+  ecgLastRoll = 0;
+  ecgTrace.setAttribute('d', `M 0 ${ECG_BASELINE} L ${ECG_W} ${ECG_BASELINE}`);
+  ecgFill.setAttribute('d', `M 0 ${ECG_BASELINE} L ${ECG_W} ${ECG_BASELINE} L ${ECG_W} ${ECG_H} L 0 ${ECG_H} Z`);
+  ecgTrace.className.baseVal = 'trace';
+  ecgFill.className.baseVal = 'fill';
+  ecgPulse.className.baseVal = 'pulse';
   tpCount.textContent = '0'; tpTps.textContent = '0.0'; tpProgress.style.width = '0%';
   tpPhase.className = 'tp-phase escrevendo'; tpPhaseText.textContent = 'Aguardando 1º token…';
   tpNote.textContent = '';
