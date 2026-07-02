@@ -95,7 +95,7 @@
 
   /* Painel do pensamento — flutua sobre um degradê no topo, sem moldura; a resposta some por baixo */
   #thinkingPanel{position:sticky;top:0;z-index:5;padding:14px 20px 2px;pointer-events:none;
-    background:linear-gradient(to bottom, rgba(15,17,21,.97) 0%, rgba(15,17,21,.88) 35%, rgba(15,17,21,.55) 65%, rgba(15,17,21,0) 100%);
+    background:linear-gradient(to bottom, rgba(15,17,21,.97) 0%, rgba(15,17,21,.95) 60%, rgba(15,17,21,.78) 85%, rgba(15,17,21,0) 100%);
     display:none}
   #thinkingPanel.show{display:block;animation:fadeIn .2s}
   @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
@@ -375,7 +375,9 @@ const SYSTEM_PROMPT_TUTOR = SYSTEM_PROMPT_BASE + '\n\nIMPORTANTE: Antes de dar a
 function currentSystemPrompt(){ return tutorMode ? SYSTEM_PROMPT_TUTOR : SYSTEM_PROMPT_BASE; }
 
 // ============ Config (temp, top_p, max_tokens) ============
-const CFG_DEFAULT = { temperature: 0.6, top_p: 0.9, max_tokens: 2048 };
+// frequency_penalty/presence_penalty combatem loops de repetição (comuns em modelos pequenos
+// tipo Llama-3.2-1B em respostas longas — sem isso o modelo pode ficar repetindo a mesma frase).
+const CFG_DEFAULT = { temperature: 0.6, top_p: 0.9, max_tokens: 2048, frequency_penalty: 0.4, presence_penalty: 0.4 };
 let cfg = { ...CFG_DEFAULT };
 try { const s = JSON.parse(localStorage.getItem('katu.config') || 'null'); if (s) cfg = { ...CFG_DEFAULT, ...s }; } catch(e){}
 
@@ -398,7 +400,7 @@ cfgReset.onclick = () => {
 };
 cfgSave.onclick = () => {
   const mx = Math.max(128, Math.min(8192, +cfgMax.value || CFG_DEFAULT.max_tokens));
-  cfg = { temperature: +cfgTemp.value, top_p: +cfgTopP.value, max_tokens: mx };
+  cfg = { ...cfg, temperature: +cfgTemp.value, top_p: +cfgTopP.value, max_tokens: mx };
   localStorage.setItem('katu.config', JSON.stringify(cfg));
   closeConfig();
   showToast('Configurações salvas');
@@ -513,6 +515,9 @@ const CHART_ICON = '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 1
 function renderChat(){
   const c = current();
   if (!c || c.messages.length <= 1) { renderEmpty(); return; }
+  // Só acompanha o fim automaticamente se o usuário já estava perto do fim
+  // (senão, alguém lendo uma resposta anterior seria puxado pra baixo a cada token).
+  const nearBottom = (chatWrap.scrollTop + chatWrap.clientHeight + 80) >= chatWrap.scrollHeight;
   chat.innerHTML = c.messages.slice(1).map((m, i) => {
     const isU = m.role === 'user';
     const statsHTML = (!isU && m.stats) ? `<div class="stats">${esc(m.stats)}</div>` : '';
@@ -542,7 +547,7 @@ function renderChat(){
       openStatsModal(msg.think);
     });
   });
-  chat.scrollTop = chat.scrollHeight;
+  if (nearBottom) chatWrap.scrollTop = chatWrap.scrollHeight;
 }
 
 function renderSidebar(){
@@ -1019,7 +1024,9 @@ send.onclick = async () => {
       stream: true,
       temperature: cfg.temperature,
       top_p: cfg.top_p,
-      max_tokens: cfg.max_tokens
+      max_tokens: cfg.max_tokens,
+      frequency_penalty: cfg.frequency_penalty ?? 0.4,
+      presence_penalty: cfg.presence_penalty ?? 0.4
     });
     for await (const chunk of stream) {
       if (abortCtl.signal.aborted) break;
