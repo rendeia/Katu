@@ -204,6 +204,9 @@
       <button class="iconbtn" id="btnTutor" title="Modo tutor — força o Katu a pensar passo a passo">
         <svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4 3 3 0 0 0-2 5 3 3 0 0 0 1 5 3 3 0 0 0 5 1 3 3 0 0 0 5-1 3 3 0 0 0 1-5 3 3 0 0 0-2-5 4 4 0 0 0-4-4z"/></svg>
       </button>
+      <button class="iconbtn" id="btnDeliberate" title="Modo deliberar — gera rascunhos e sintetiza a melhor resposta (mais lento)">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/></svg>
+      </button>
       <button class="iconbtn" id="btnExport" title="Exportar como Markdown">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
       </button>
@@ -342,7 +345,7 @@ const prep = $('prep'), splash = $('splash');
 const chatWrap = $('chatWrap'), chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 const sidebar = $('sidebar'), toggleSidebar = $('toggleSidebar'), newConvBtn = $('newConv'), convList = $('convList');
 const searchInput = $('searchInput');
-const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg'), btnTutor = $('btnTutor');
+const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg'), btnTutor = $('btnTutor'), btnDeliberate = $('btnDeliberate');
 const modalCfg = $('modalCfg'), cfgClose = $('cfgClose'), cfgReset = $('cfgReset'), cfgSave = $('cfgSave');
 const cfgTemp = $('cfgTemp'), cfgTopP = $('cfgTopP'), cfgMax = $('cfgMax'), vTemp = $('vTemp'), vTopP = $('vTopP');
 const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $('statsBody');
@@ -373,6 +376,23 @@ btnTutor.onclick = () => {
   localStorage.setItem('katu.tutor', tutorMode ? '1' : '0');
   refreshTutorButton();
   showToast(tutorMode ? 'Modo tutor ligado' : 'Modo tutor desligado');
+};
+
+// ============ Modo Deliberar (test-time compute: rascunhos + síntese) ============
+// Desligado por padrão — gera ~3 rascunhos curtos em temperaturas diferentes e depois
+// sintetiza a melhor resposta final. Mais transparente e cuidadoso, mas ~3-4x mais lento.
+let deliberateMode = localStorage.getItem('katu.deliberate') === '1';
+function refreshDeliberateButton(){
+  btnDeliberate.classList.toggle('on', deliberateMode);
+  btnDeliberate.title = deliberateMode
+    ? 'Modo deliberar LIGADO — gera rascunhos e sintetiza a melhor resposta, ~3-4x mais lento (clique para desligar)'
+    : 'Modo deliberar DESLIGADO — clique pra ligar (mais lento, mais cuidadoso)';
+}
+btnDeliberate.onclick = () => {
+  deliberateMode = !deliberateMode;
+  localStorage.setItem('katu.deliberate', deliberateMode ? '1' : '0');
+  refreshDeliberateButton();
+  showToast(deliberateMode ? 'Modo deliberar ligado (mais lento, mais cuidadoso)' : 'Modo deliberar desligado');
 };
 
 const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.'
@@ -553,9 +573,13 @@ function renderChat(){
     const statsHTML = (!isU && m.stats) ? `<div class="stats">${esc(m.stats)}</div>` : '';
     const chartBtn = (!isU && m.think) ? `<button class="chart" data-i="${i+1}" title="Ver estatísticas do raciocínio">${CHART_ICON}<span>Detalhes</span></button>` : '';
     const copyBtn = `<button class="copy" data-i="${i+1}" title="Copiar">${COPY_ICON}<span>Copiar</span></button>`;
+    const delibHTML = (!isU && m.deliberation && m.deliberation.length) ? `<details class="calc" style="margin-bottom:8px">
+      <summary>🗳️ ${m.deliberation.length} rascunhos avaliados antes desta resposta</summary>
+      <div>${m.deliberation.map((d,di) => `<b>Rascunho ${String.fromCharCode(65+di)}:</b><div style="white-space:pre-wrap;margin:4px 0 10px">${esc(d || '(vazio ou interrompido)')}</div>`).join('')}</div>
+    </details>` : '';
     return `<div class="msg ${isU?'user':'assistant'}">
       <div class="role">${isU?'Você':'Katu'}<div class="msg-actions">${chartBtn}${copyBtn}</div></div>
-      <div class="bubble">${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
+      <div class="bubble">${delibHTML}${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
     </div>`;
   }).join('');
   chat.querySelectorAll('.copy').forEach(btn => {
@@ -1008,6 +1032,7 @@ async function loadModel(modelId, isSwitch){
       if (!state.conversations.length) newConversation();
       else { renderSidebar(); renderChat(); topTitle.textContent = current()?.title || 'Nova conversa'; }
       refreshTutorButton();
+      refreshDeliberateButton();
       input.focus();
     }
   } catch (e) {
@@ -1094,6 +1119,36 @@ function setSendState(sending){
   send.title = sending ? 'Parar' : 'Enviar';
 }
 
+// Gera um rascunho curto (modo deliberar) — não escreve em c.messages, só devolve o texto.
+// Sem suporte a ```calc/<think> aqui de propósito: é só um esboço rápido pra comparar depois.
+async function generateDraftText(apiMessages, temperature, maxTokens){
+  try {
+    const stream = await engine.chat.completions.create({
+      messages: apiMessages,
+      stream: true,
+      temperature,
+      top_p: cfg.top_p,
+      max_tokens: maxTokens,
+      frequency_penalty: cfg.frequency_penalty ?? 0.4,
+      presence_penalty: cfg.presence_penalty ?? 0.4
+    });
+    let text = '';
+    for await (const chunk of stream) {
+      if (abortCtl.signal.aborted) break;
+      const delta = chunk.choices?.[0]?.delta?.content || '';
+      if (delta) {
+        text += delta;
+        // Acende estrela direto (sem o ticker, que só começa na rodada final) — só pra não
+        // parecer travado durante os rascunhos, que podem levar bastante tempo.
+        if (constState) addStar('raciocinando');
+      }
+    }
+    return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```calc[\s\S]*?```/gi, '').trim();
+  } catch (e) {
+    return '';
+  }
+}
+
 send.onclick = async () => {
   if (streaming) { abortCtl?.abort(); return; }
   const text = input.value.trim();
@@ -1112,7 +1167,34 @@ send.onclick = async () => {
   setSendState(true);
   abortCtl = new AbortController();
 
-  // Painel de pensamento — a forma é escolhida a partir de palavras-chave do prompt
+  let apiMessages = c.messages.slice(0, -1);
+
+  // Modo deliberar: gera rascunhos curtos em temperaturas diferentes ANTES da resposta de
+  // verdade, depois pede pro modelo sintetizar a melhor versão final. Fica guardado em
+  // m.deliberation pra exibir de forma transparente (bloco colapsável na bolha).
+  if (deliberateMode) {
+    showThinkingPanel(text);
+    tpPhase.className = 'tp-phase raciocinando';
+    const temps = [0.3, 0.8, 1.2];
+    const drafts = [];
+    for (let i = 0; i < temps.length && !abortCtl.signal.aborted; i++) {
+      tpPhaseText.textContent = `Rascunho ${i+1} de ${temps.length}…`;
+      tpConstHint.textContent = `Gerando tentativa ${i+1} de ${temps.length}, temperatura ${temps[i]}…`;
+      const draft = await generateDraftText(apiMessages, temps[i], Math.min(300, cfg.max_tokens));
+      drafts.push(draft);
+      tpCount.textContent = String(drafts.length);
+    }
+    if (!abortCtl.signal.aborted && drafts.some(d => d)) {
+      const labeled = drafts.map((d,i) => `Rascunho ${String.fromCharCode(65+i)}:\n${d || '(vazio ou interrompido)'}`).join('\n\n');
+      apiMessages = apiMessages.concat([{
+        role: 'user',
+        content: `Você gerou ${drafts.length} rascunhos de resposta pra mesma pergunta, em tentativas diferentes:\n\n${labeled}\n\nEscreva agora a resposta FINAL e definitiva, aproveitando os melhores pontos de cada rascunho e corrigindo eventuais erros. Não mencione os rascunhos nem esse processo — escreva direto a resposta final, como se fosse a primeira vez.`
+      }]);
+      c.messages[idx].deliberation = drafts;
+    }
+  }
+
+  // Painel de pensamento da resposta final — a forma é escolhida a partir de palavras-chave do prompt
   showThinkingPanel(text);
   const panelState = {
     active: true,
@@ -1131,7 +1213,7 @@ send.onclick = async () => {
     // Cada rodada é uma chamada de streaming. Se o modelo fechar um bloco ```calc, a
     // rodada é cortada, o código roda no sandbox, e uma nova rodada continua a resposta
     // com o resultado injetado no contexto (sem poluir o histórico salvo da conversa).
-    let apiMessages = c.messages.slice(0, -1);
+    // apiMessages já pode incluir a síntese dos rascunhos do modo deliberar, se ligado.
     let round = 0;
     const MAX_CALC_ROUNDS = 3;
     while (true) {
@@ -1246,6 +1328,7 @@ input.addEventListener('input', () => {
 
 // Boot
 refreshTutorButton();
+refreshDeliberateButton();
 loadState();
 renderSidebar();
 if (current()) topTitle.textContent = current().title;
