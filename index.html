@@ -207,6 +207,9 @@
       <button class="iconbtn" id="btnDeliberate" title="Modo deliberar — gera rascunhos e sintetiza a melhor resposta (mais lento)">
         <svg viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 9v3a6 6 0 0 0 6 6h3"/></svg>
       </button>
+      <button class="iconbtn" id="btnMemory" title="Memória semântica — busca conversas antigas relevantes (baixa modelo extra)">
+        <svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4c0 1.2.5 2.3 1.3 3A4 4 0 0 0 8 12.5V19a3 3 0 0 0 3 3h2a3 3 0 0 0 3-3v-6.5a4 4 0 0 0-1.3-3.5c.8-.7 1.3-1.8 1.3-3a4 4 0 0 0-4-4z"/><path d="M9 9h6M9 13h6"/></svg>
+      </button>
       <button class="iconbtn" id="btnExport" title="Exportar como Markdown">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
       </button>
@@ -297,6 +300,13 @@
         <input type="number" id="cfgMax" min="128" max="8192" step="64">
         <div class="desc">Limite superior da resposta. Padrão 2048. Reduzir acelera respostas curtas; aumentar permite respostas longas (custa memória).</div>
       </div>
+      <div class="field">
+        <label>Memória semântica</label>
+        <div class="desc" id="memStatus">Desligada.</div>
+        <div class="rr" style="margin-top:8px">
+          <button class="btn" id="btnMemClear">Limpar memória</button>
+        </div>
+      </div>
     </div>
     <div class="m-f">
       <button class="btn" id="cfgReset">Restaurar padrões</button>
@@ -345,7 +355,8 @@ const prep = $('prep'), splash = $('splash');
 const chatWrap = $('chatWrap'), chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 const sidebar = $('sidebar'), toggleSidebar = $('toggleSidebar'), newConvBtn = $('newConv'), convList = $('convList');
 const searchInput = $('searchInput');
-const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg'), btnTutor = $('btnTutor'), btnDeliberate = $('btnDeliberate');
+const topTitle = $('topTitle'), btnExport = $('btnExport'), btnCfg = $('btnCfg'), btnTutor = $('btnTutor'), btnDeliberate = $('btnDeliberate'), btnMemory = $('btnMemory');
+const memStatus = $('memStatus'), btnMemClear = $('btnMemClear');
 const modalCfg = $('modalCfg'), cfgClose = $('cfgClose'), cfgReset = $('cfgReset'), cfgSave = $('cfgSave');
 const cfgTemp = $('cfgTemp'), cfgTopP = $('cfgTopP'), cfgMax = $('cfgMax'), vTemp = $('vTemp'), vTopP = $('vTopP');
 const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $('statsBody');
@@ -393,6 +404,116 @@ btnDeliberate.onclick = () => {
   localStorage.setItem('katu.deliberate', deliberateMode ? '1' : '0');
   refreshDeliberateButton();
   showToast(deliberateMode ? 'Modo deliberar ligado (mais lento, mais cuidadoso)' : 'Modo deliberar desligado');
+};
+
+// ============ Memória semântica (RAG 100% no navegador) ============
+// Guarda pergunta+resposta de cada troca (embutida com um modelo de embedding à parte) no
+// IndexedDB do navegador. Antes de responder, busca por similaridade de cosseno as lembranças
+// mais relevantes de conversas passadas e injeta no contexto — sem servidor, sem API externa.
+const MEM_DB_NAME = 'katu-memory', MEM_STORE = 'items', MEM_DB_VERSION = 1;
+const EMBED_MODEL_ID = 'snowflake-arctic-embed-s-q0f32-MLC-b4';
+
+function openMemDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(MEM_DB_NAME, MEM_DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(MEM_STORE)) db.createObjectStore(MEM_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function memPutItem(item){
+  const db = await openMemDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEM_STORE, 'readwrite');
+    tx.objectStore(MEM_STORE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function memGetAll(){
+  const db = await openMemDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEM_STORE, 'readonly');
+    const req = tx.objectStore(MEM_STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function memCount(){
+  const db = await openMemDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEM_STORE, 'readonly');
+    const req = tx.objectStore(MEM_STORE).count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function memClear(){
+  const db = await openMemDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEM_STORE, 'readwrite');
+    tx.objectStore(MEM_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function cosineSim(a, b){
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-9);
+}
+
+let embedEngine = null, embedLoading = null;
+async function ensureEmbedEngine(){
+  if (embedEngine) return embedEngine;
+  if (embedLoading) return embedLoading;
+  embedLoading = (async () => {
+    showToast('Carregando modelo de memória (≈ 240 MB, uma vez só)…');
+    embedEngine = await webllm.CreateMLCEngine(EMBED_MODEL_ID, {});
+    return embedEngine;
+  })();
+  try { return await embedLoading; } finally { embedLoading = null; }
+}
+async function embedText(text){
+  const eng = await ensureEmbedEngine();
+  const res = await eng.embeddings.create({ model: EMBED_MODEL_ID, input: [String(text).slice(0, 2000)] });
+  return res.data[0].embedding;
+}
+
+let memoryMode = localStorage.getItem('katu.memory') === '1';
+function refreshMemoryButton(){
+  btnMemory.classList.toggle('on', memoryMode);
+  btnMemory.title = memoryMode
+    ? 'Memória semântica LIGADA — busca conversas antigas relevantes (clique para desligar)'
+    : 'Memória semântica DESLIGADA — clique pra ligar (baixa ≈240 MB extra na 1ª vez)';
+  refreshMemStatus();
+}
+async function refreshMemStatus(){
+  if (!memoryMode) { memStatus.textContent = 'Desligada.'; return; }
+  try {
+    const n = await memCount();
+    memStatus.textContent = `Ligada · ${n} lembrança${n===1?'':'s'} guardada${n===1?'':'s'} localmente (IndexedDB).`;
+  } catch (e) { memStatus.textContent = 'Ligada.'; }
+}
+btnMemory.onclick = () => {
+  memoryMode = !memoryMode;
+  localStorage.setItem('katu.memory', memoryMode ? '1' : '0');
+  refreshMemoryButton();
+  if (memoryMode) {
+    showToast('Memória semântica ligada');
+    ensureEmbedEngine().catch(e => showToast('Erro ao carregar memória: ' + (e.message||e)));
+  } else {
+    showToast('Memória semântica desligada');
+  }
+};
+btnMemClear.onclick = async () => {
+  try { await memClear(); showToast('Memória limpa'); refreshMemStatus(); }
+  catch (e) { showToast('Erro ao limpar memória: ' + (e.message||e)); }
 };
 
 const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.'
@@ -577,9 +698,13 @@ function renderChat(){
       <summary>🗳️ ${m.deliberation.length} rascunhos avaliados antes desta resposta</summary>
       <div>${m.deliberation.map((d,di) => `<b>Rascunho ${String.fromCharCode(65+di)}:</b><div style="white-space:pre-wrap;margin:4px 0 10px">${esc(d || '(vazio ou interrompido)')}</div>`).join('')}</div>
     </details>` : '';
+    const memHTML = (!isU && m.memoryUsed && m.memoryUsed.length) ? `<details class="calc" style="margin-bottom:8px">
+      <summary>🧠 ${m.memoryUsed.length} lembrança${m.memoryUsed.length===1?'':'s'} de conversas anteriores usada${m.memoryUsed.length===1?'':'s'}</summary>
+      <div>${m.memoryUsed.map(it => `<div style="white-space:pre-wrap;margin:4px 0 10px">${esc(it.text)} <span style="color:var(--muted)">(similaridade ${(it.score*100).toFixed(0)}%)</span></div>`).join('')}</div>
+    </details>` : '';
     return `<div class="msg ${isU?'user':'assistant'}">
       <div class="role">${isU?'Você':'Katu'}<div class="msg-actions">${chartBtn}${copyBtn}</div></div>
-      <div class="bubble">${delibHTML}${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
+      <div class="bubble">${memHTML}${delibHTML}${isU ? esc(m.content).replace(/\n/g,'<br>') : md(m.content)}${statsHTML}</div>
     </div>`;
   }).join('');
   chat.querySelectorAll('.copy').forEach(btn => {
@@ -1033,6 +1158,7 @@ async function loadModel(modelId, isSwitch){
       else { renderSidebar(); renderChat(); topTitle.textContent = current()?.title || 'Nova conversa'; }
       refreshTutorButton();
       refreshDeliberateButton();
+      refreshMemoryButton();
       input.focus();
     }
   } catch (e) {
@@ -1168,6 +1294,28 @@ send.onclick = async () => {
   abortCtl = new AbortController();
 
   let apiMessages = c.messages.slice(0, -1);
+
+  // Memória semântica: busca lembranças antigas relevantes (de QUALQUER conversa) e injeta
+  // no contexto antes de gerar. Guardado em m.memoryUsed pra exibir de forma transparente.
+  if (memoryMode) {
+    try {
+      const qEmb = await embedText(text);
+      const all = await memGetAll();
+      const scored = all
+        .map(it => ({ text: it.text, score: cosineSim(qEmb, it.embedding) }))
+        .filter(it => it.score > 0.55)
+        .sort((a,b) => b.score - a.score)
+        .slice(0, 3);
+      if (scored.length) {
+        c.messages[idx].memoryUsed = scored;
+        const memCtx = scored.map((it,i) => `(${i+1}) ${it.text}`).join('\n\n');
+        apiMessages = apiMessages.concat([{
+          role: 'user',
+          content: `[Lembranças de conversas anteriores que podem ser relevantes:]\n${memCtx}\n\n[Fim das lembranças — use isso só se for realmente relevante pra responder à pergunta a seguir.]`
+        }]);
+      }
+    } catch (e) { console.error('memória semântica:', e); }
+  }
 
   // Modo deliberar: gera rascunhos curtos em temperaturas diferentes ANTES da resposta de
   // verdade, depois pede pro modelo sintetizar a melhor versão final. Fica guardado em
@@ -1308,6 +1456,22 @@ send.onclick = async () => {
       };
     }
 
+    // Memória semântica: guarda a troca (pergunta+resposta limpa) pra conversas futuras acharem.
+    // Roda em segundo plano (embutir leva um tempo) — não trava a UI nem o próximo envio.
+    if (memoryMode && total > 0) {
+      const cleanAnswer = c.messages[idx].content
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/```calc\s*\n[\s\S]*?```\s*\n?<calc-result>[\s\S]*?<\/calc-result>\n*/gi, '')
+        .trim();
+      if (cleanAnswer) {
+        const combined = `Pergunta: ${text}\nResposta: ${cleanAnswer}`.slice(0, 2000);
+        embedText(combined)
+          .then(emb => memPutItem({ id: uid(), text: combined, embedding: emb, ts: Date.now() }))
+          .then(() => refreshMemStatus())
+          .catch(e => console.error('memória semântica (salvar):', e));
+      }
+    }
+
     c.updatedAt = Date.now();
     saveState();
     hideThinkingPanel();
@@ -1329,6 +1493,7 @@ input.addEventListener('input', () => {
 // Boot
 refreshTutorButton();
 refreshDeliberateButton();
+refreshMemoryButton();
 loadState();
 renderSidebar();
 if (current()) topTitle.textContent = current().title;
