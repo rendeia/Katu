@@ -664,7 +664,8 @@ function shapeDefault(n){
 }
 function shapePolygon(n){
   // Hexágonos aninhados, cada volta um pouco maior e rotacionada — leitura "geométrico/anguloso".
-  const sides = 6, perSide = 7, perLap = sides * perSide;
+  // perSide baixo: o 1º hexágono já fecha em ~24 tokens, então respostas curtas mostram a forma inteira.
+  const sides = 6, perSide = 4, perLap = sides * perSide;
   const lap = Math.floor(n / perLap);
   const t = (n % perLap) / perLap;
   const edge = Math.floor(t * sides);
@@ -683,7 +684,8 @@ function shapePolygon(n){
 }
 function shapeFlower(n){
   // Curva-rosa de 5 pétalas que "desabrocha": raio cresce nas primeiras voltas até o tamanho final.
-  const k = 5, thetaStep = 0.24;
+  // thetaStep maior: 1ª volta (5 pétalas) fecha em ~20 tokens.
+  const k = 5, thetaStep = 0.31;
   const theta = n * thetaStep;
   const lap = Math.floor(theta / (2 * Math.PI));
   const bloom = Math.min(1, 0.35 + lap * 0.33);
@@ -696,8 +698,11 @@ function shapeFlower(n){
 }
 function shapeGrid(n){
   // Percurso em serpentina por uma grade — nós de circuito; voltas extras adicionam "atividade".
-  const cols = 9, rows = 4, marginX = 24, marginY = 14;
-  const usableW = CONST_VB_W - marginX * 2, usableH = CONST_VB_H - marginY * 2;
+  // Célula fixa de 34un (< CONST_LINK_DIST) garante que vizinhos horizontais E verticais sempre conectem,
+  // formando a malha; grade compacta (7x3=21) fecha em ~21 tokens.
+  const cols = 7, rows = 3, cell = 34;
+  const usableW = cell * (cols - 1), usableH = cell * (rows - 1);
+  const marginX = (CONST_VB_W - usableW) / 2, marginY = (CONST_VB_H - usableH) / 2;
   const perLap = cols * rows;
   const lap = Math.floor(n / perLap);
   const idx = n % perLap;
@@ -711,7 +716,8 @@ function shapeGrid(n){
 }
 function shapeSpiral(n){
   // Espiral de Arquimedes bem enrolada — como uma mola/relógio se desenrolando.
-  const thetaStep = 0.42, growth = 1.55, maxR = 54;
+  // growth maior: atinge o raio máximo em ~2 voltas (~30 tokens) em vez de ~5.
+  const thetaStep = 0.42, growth = 2.6, maxR = 54;
   const theta = n * thetaStep;
   let r = growth * theta;
   if (r > maxR) r = maxR - ((r - maxR) % 6);
@@ -723,13 +729,14 @@ function shapeSpiral(n){
 }
 function shapeWave(n){
   // Varredura senoidal esquerda->direita; cada passada completa muda de "faixa" vertical.
-  const perLap = 60, marginX = 20;
+  // perLap baixo + freq 3: já dá pra ver 3 cristas completas em ~24 tokens.
+  const perLap = 24, marginX = 20;
   const usableW = CONST_VB_W - marginX * 2;
   const lap = Math.floor(n / perLap);
   const idx = n % perLap;
   const t = idx / (perLap - 1);
   const x = marginX + t * usableW;
-  const freq = 2.5, amp = 30 - Math.min(lap, 2) * 4;
+  const freq = 3, amp = 30 - Math.min(lap, 2) * 4;
   const laneOffset = ((lap % 3) - 1) * 22;
   const y = CONST_CY + laneOffset + amp * Math.sin(t * freq * 2 * Math.PI + lap * 0.6);
   const jitter = 1;
