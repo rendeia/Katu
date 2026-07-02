@@ -88,6 +88,16 @@
   .bubble details.think summary::before{content:"▸ ";color:var(--muted);font-weight:normal}
   .bubble details.think[open] summary::before{content:"▾ "}
   .bubble details.think div{padding:6px 6px 4px;line-height:1.5;white-space:pre-wrap}
+  .bubble details.calc{margin:6px 0 10px;border-left:2px solid var(--accent);padding:2px 0 2px 10px;font-size:13px;color:var(--muted);background:rgba(124,92,255,.05);border-radius:0 6px 6px 0}
+  .bubble details.calc summary{cursor:pointer;color:var(--accent);font-weight:600;padding:3px 6px;list-style:none;user-select:none}
+  .bubble details.calc summary::-webkit-details-marker{display:none}
+  .bubble details.calc summary::before{content:"▸ ";color:var(--muted);font-weight:normal}
+  .bubble details.calc[open] summary::before{content:"▾ "}
+  .bubble details.calc div{padding:6px 6px 8px}
+  .bubble details.calc pre{margin:4px 0}
+  .bubble .calc-out{font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:4px 8px;border-radius:6px;margin-top:2px}
+  .bubble .calc-out.ok{color:var(--ok);background:rgba(34,197,94,.08)}
+  .bubble .calc-out.err{color:var(--bad);background:rgba(239,68,68,.08)}
   .bubble .stats{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
 
   /* Painel do pensamento — flutua sobre um degradê no topo, sem moldura; a resposta some por baixo */
@@ -365,7 +375,8 @@ btnTutor.onclick = () => {
   showToast(tutorMode ? 'Modo tutor ligado' : 'Modo tutor desligado');
 };
 
-const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.';
+const SYSTEM_PROMPT_BASE = 'Você é o Katu, assistente de raciocínio da família G2 da plataforma Rendeia. Rode no navegador via WebGPU, 100% local. Para questões factuais em português do Brasil, seja preciso e curto. Não invente fatos: se não souber com certeza, diga.'
+  + '\n\nCÁLCULOS: você não é confiável de cabeça para aritmética, porcentagem, conversão de unidades, datas ou contagem exata. Sempre que a resposta depender de um cálculo desses, NÃO calcule mentalmente — escreva um bloco ```calc contendo código JavaScript que atribua o valor final à variável `resultado`, e pare de escrever IMEDIATAMENTE depois de fechar o bloco com ```. O ambiente vai executar o código e te devolver o resultado; só então continue a resposta a partir dele, sem repetir o bloco de código. Exemplo: ```calc\nconst resultado = 84390 * 0.175;\n```';
 const SYSTEM_PROMPT_TUTOR = SYSTEM_PROMPT_BASE + '\n\nIMPORTANTE: Antes de dar a resposta final, sempre pense passo a passo dentro de um bloco <think>...</think>. Explique seu raciocínio, considere hipóteses e verifique. SÓ DEPOIS de fechar o </think>, escreva a resposta final para o usuário de forma clara e curta.';
 
 function currentSystemPrompt(){ return tutorMode ? SYSTEM_PROMPT_TUTOR : SYSTEM_PROMPT_BASE; }
@@ -483,8 +494,30 @@ btnExport.onclick = () => { if (current()) exportConversation(current().id); };
 
 // ============ Renderização ============
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderCalcBlock(calc){
+  const codeHtml = esc(calc.code);
+  if (!calc.res) {
+    return `<details class="calc" open><summary>🧮 Calculando…</summary><div><pre><code>${codeHtml}</code></pre></div></details>`;
+  }
+  const resultHtml = calc.res.ok
+    ? `<div class="calc-out ok">→ ${esc(calc.res.result)}</div>`
+    : `<div class="calc-out err">⚠️ ${esc(calc.res.error)}</div>`;
+  return `<details class="calc"><summary>🧮 Cálculo</summary><div><pre><code>${codeHtml}</code></pre>${resultHtml}</div></details>`;
+}
 function md(src){
   const pens = [];
+  const calcs = [];
+  // Blocos de cálculo já executados (código + resultado anexado pelo app)
+  src = src.replace(/```calc\s*\n([\s\S]*?)```\s*\n?<calc-result>([\s\S]*?)<\/calc-result>/gi, (m, code, resJson) => {
+    let res = null; try { res = JSON.parse(resJson); } catch(e) {}
+    calcs.push({ code: code.trim(), res });
+    return `@@CALC${calcs.length-1}@@`;
+  });
+  // Blocos de cálculo ainda sem resultado (executando, ou ainda sendo escritos durante o streaming)
+  src = src.replace(/```calc\s*\n([\s\S]*?)(?:```|$)/gi, (m, code) => {
+    calcs.push({ code: code.trim(), res: null });
+    return `@@CALC${calcs.length-1}@@`;
+  });
   src = src.replace(/<think>([\s\S]*?)<\/think>/gi, (m, p) => { pens.push(p.trim()); return `@@THK${pens.length-1}@@`; });
   // Também detecta <think> ainda ABERTO (durante streaming): tudo após <think> vira pensamento
   src = src.replace(/<think>([\s\S]*)$/i, (m, p) => { pens.push(p.trim()); return `@@THK${pens.length-1}@@`; });
@@ -499,6 +532,7 @@ function md(src){
     const t = pens[+i]||''; if (!t) return '';
     return `<details class="think" open><summary>💭 Pensamento</summary><div>${esc(t).replace(/\n/g,'<br>')}</div></details>`;
   });
+  src = src.replace(/@@CALC(\d+)@@/g, (m,i) => renderCalcBlock(calcs[+i]));
   return src;
 }
 
@@ -529,7 +563,10 @@ function renderChat(){
       const idx = +btn.dataset.i;
       const msg = c.messages[idx]; if (!msg) return;
       try {
-        const clean = msg.content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        const clean = msg.content
+          .replace(/<think>[\s\S]*?<\/think>/gi, '')
+          .replace(/```calc\s*\n[\s\S]*?```\s*\n?<calc-result>[\s\S]*?<\/calc-result>\n*/gi, '')
+          .trim();
         await navigator.clipboard.writeText(clean);
         btn.classList.add('copied'); btn.innerHTML = CHECK_ICON + '<span>Copiado</span>';
         setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = COPY_ICON + '<span>Copiar</span>'; }, 1400);
@@ -1007,6 +1044,46 @@ if (modelSwitch) {
   await loadModel(getModelId(), false);
 })();
 
+// ============ Interpretador de código (sandbox p/ cálculo exato) ============
+// Roda em Web Worker isolado: sem acesso a DOM, e rede/storage desativados explicitamente
+// (Workers têm fetch/WebSocket/etc por padrão — o modelo não deveria conseguir usar nada disso).
+const CALC_BLOCK_RE = /```calc\s*\n([\s\S]*?)```/i;
+const CALC_WORKER_SRC = `
+self.fetch = undefined; self.XMLHttpRequest = undefined; self.WebSocket = undefined;
+self.importScripts = undefined; self.indexedDB = undefined; self.caches = undefined;
+self.onmessage = function(e){
+  try {
+    var fn = new Function(e.data.code + '\\n;return typeof resultado !== "undefined" ? resultado : undefined;');
+    var result = fn();
+    if (typeof result === 'object' && result !== null) result = JSON.stringify(result);
+    postMessage({ ok: true, result: String(result) });
+  } catch (err) {
+    postMessage({ ok: false, error: String((err && err.message) || err) });
+  }
+};
+`;
+function runSandboxed(code, timeoutMs){
+  timeoutMs = timeoutMs || 2000;
+  return new Promise((resolve) => {
+    const blob = new Blob([CALC_WORKER_SRC], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const worker = new Worker(url);
+    let done = false;
+    const finish = (payload) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      resolve(payload);
+    };
+    const timer = setTimeout(() => finish({ ok:false, error:`tempo limite excedido (${timeoutMs/1000}s) — provável loop infinito` }), timeoutMs);
+    worker.onmessage = (e) => finish(e.data);
+    worker.onerror = (e) => finish({ ok:false, error: String(e.message || 'erro no worker') });
+    worker.postMessage({ code });
+  });
+}
+
 // ============ Envio / streaming ============
 function setSendState(sending){
   streaming = sending;
@@ -1051,19 +1128,28 @@ send.onclick = async () => {
   let inThinkPhase = false;
 
   try {
-    const stream = await engine.chat.completions.create({
-      messages: c.messages.slice(0, -1),
-      stream: true,
-      temperature: cfg.temperature,
-      top_p: cfg.top_p,
-      max_tokens: cfg.max_tokens,
-      frequency_penalty: cfg.frequency_penalty ?? 0.4,
-      presence_penalty: cfg.presence_penalty ?? 0.4
-    });
-    for await (const chunk of stream) {
-      if (abortCtl.signal.aborted) break;
-      const delta = chunk.choices?.[0]?.delta?.content || '';
-      if (delta) {
+    // Cada rodada é uma chamada de streaming. Se o modelo fechar um bloco ```calc, a
+    // rodada é cortada, o código roda no sandbox, e uma nova rodada continua a resposta
+    // com o resultado injetado no contexto (sem poluir o histórico salvo da conversa).
+    let apiMessages = c.messages.slice(0, -1);
+    let round = 0;
+    const MAX_CALC_ROUNDS = 3;
+    while (true) {
+      const stream = await engine.chat.completions.create({
+        messages: apiMessages,
+        stream: true,
+        temperature: cfg.temperature,
+        top_p: cfg.top_p,
+        max_tokens: cfg.max_tokens,
+        frequency_penalty: cfg.frequency_penalty ?? 0.4,
+        presence_penalty: cfg.presence_penalty ?? 0.4
+      });
+      const roundStartLen = c.messages[idx].content.length;
+      let hitCalc = false;
+      for await (const chunk of stream) {
+        if (abortCtl.signal.aborted) break;
+        const delta = chunk.choices?.[0]?.delta?.content || '';
+        if (!delta) continue;
         const now = performance.now();
         panelState.timestamps.push(now);
         panelState.total++;
@@ -1079,7 +1165,26 @@ send.onclick = async () => {
           inThinkPhase = false; thinkEndTs = now;
         }
         renderChat();
+        if (CALC_BLOCK_RE.test(content.slice(roundStartLen))) { hitCalc = true; break; }
       }
+      if (abortCtl.signal.aborted) break;
+      if (!hitCalc || round >= MAX_CALC_ROUNDS) break;
+
+      round++;
+      const newlyWritten = c.messages[idx].content.slice(roundStartLen);
+      const m = newlyWritten.match(CALC_BLOCK_RE);
+      const code = m ? m[1] : '';
+      const assistantSoFar = c.messages[idx].content; // conteúdo até o fechamento do ```calc, sem marcador ainda
+      const res = await runSandboxed(code, 2000);
+      c.messages[idx].content += '\n<calc-result>' + JSON.stringify(res) + '</calc-result>\n\n';
+      renderChat();
+      const toolMsg = res.ok
+        ? `[Resultado do cálculo: ${res.result}] Continue a resposta a partir daqui, sem repetir o bloco de código.`
+        : `[O cálculo falhou: ${res.error}] Continue a resposta explicando que não foi possível calcular esse valor, sem repetir o bloco de código.`;
+      apiMessages = apiMessages.concat([
+        { role: 'assistant', content: assistantSoFar },
+        { role: 'user', content: toolMsg }
+      ]);
     }
   } catch (e) {
     if (e.name !== 'AbortError') c.messages[idx].content += '\n\nErro: ' + (e.message||e);
