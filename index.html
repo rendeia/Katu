@@ -63,9 +63,6 @@
   #splash .progress{width:100%;height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-top:8px}
   #splash .progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .25s}
   #splash .log{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);max-width:520px;width:100%;max-height:120px;overflow:auto;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px}
-  #splash button{background:var(--accent);color:#fff;border:none;padding:12px 22px;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer}
-  #splash button:hover{background:var(--accent2)}
-  #splash button:disabled{opacity:.5;cursor:not-allowed}
   #splash .err{color:var(--bad);background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35)}
 
   /* Chat */
@@ -130,7 +127,11 @@
   #send:hover{background:var(--accent2)}
   #send.stop{background:var(--bad)}
   #send svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .hint{font-size:11px;color:var(--muted);text-align:center;margin-top:7px}
+  .hintRow{display:flex;align-items:center;gap:10px;margin-top:7px;flex-wrap:wrap}
+  .hint{font-size:11px;color:var(--muted);flex:1;min-width:180px}
+  #modelSwitch{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:inherit;cursor:pointer;flex-shrink:0}
+  #modelSwitch:hover{border-color:var(--accent);color:var(--text)}
+  #modelSwitch:disabled{opacity:.5;cursor:wait}
   .empty{text-align:center;color:var(--muted);margin-top:15vh;padding:0 20px}
   .empty h2{margin:0 0 8px;color:var(--text);font-weight:600}
 
@@ -214,19 +215,9 @@
         <div class="progress"><div id="bar"></div></div>
         <div class="log" id="log">verificando WebGPU…</div>
       </div>
-
-      <div style="width:100%;max-width:520px">
-        <label for="modelSel" style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Modelo</label>
-        <select id="modelSel" style="width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14.5px;font-family:inherit">
-          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" data-size="0.8">Llama-3.2-1B · rápido (~800 MB, ~10-20 tok/s)</option>
-          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC" data-size="2.0">Llama-3.2-3B · qualidade (~2 GB, ~3-8 tok/s em iGPU)</option>
-          <option value="Hermes-3-Llama-3.2-3B-q4f16_1-MLC" data-size="2.0">Hermes-3-Llama-3.2-3B · raciocínio (~2 GB, ~3-8 tok/s)</option>
-        </select>
-        <div style="font-size:11.5px;color:var(--muted);margin-top:6px">A escolha fica salva. Se a iGPU estiver lenta com 3B, use 1B.</div>
-      </div>
-      <button id="loadBtn" disabled>Carregar modelo</button>
-      <p style="font-size:12.5px">A primeira carga baixa o modelo do Hugging Face (uma vez só).
-         Depois fica no cache do navegador, offline pra sempre.</p>
+      <p style="font-size:12.5px">Carrega automaticamente o <b>Llama-3.2-1B</b> (≈ 0,8 GB na 1ª vez,
+         depois fica no cache do navegador, offline pra sempre). Dá pra trocar de modelo depois,
+         na caixa de pergunta.</p>
     </div>
 
     <!-- Área do chat com painel sticky -->
@@ -258,7 +249,14 @@
           <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </div>
-      <div class="hint" id="composerHint">Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.</div>
+      <div class="hintRow">
+        <div class="hint" id="composerHint">Peça "pense passo a passo" e o Katu explica o raciocínio antes de responder.</div>
+        <select id="modelSwitch" title="Trocar modelo">
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" data-size="0.8">Llama-3.2-1B · rápido</option>
+          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC" data-size="2.0">Llama-3.2-3B · qualidade</option>
+          <option value="Hermes-3-Llama-3.2-3B-q4f16_1-MLC" data-size="2.0">Hermes-3-Llama-3.2-3B · raciocínio</option>
+        </select>
+      </div>
     </div>
   </div>
 </div>
@@ -319,11 +317,9 @@
     var stTxt = document.getElementById('stTxt');
     var dot = document.getElementById('dot');
     var prep = document.getElementById('prep');
-    var btn = document.getElementById('loadBtn');
     if (stTxt) stTxt.textContent = 'abrir via file:// não funciona';
     if (dot) dot.className = 'dot err';
     if (prep) { prep.className = 'box err'; prep.innerHTML = '<b>Ops.</b><br>' + msg; }
-    if (btn) btn.style.display = 'none';
   });
 })();
 </script>
@@ -332,7 +328,7 @@ import * as webllm from './vendor/webllm/web-llm.js';
 
 const $ = id => document.getElementById(id);
 const dot = $('dot'), stTxt = $('stTxt'), log = $('log'), bar = $('bar');
-const loadBtn = $('loadBtn'), prep = $('prep'), splash = $('splash');
+const prep = $('prep'), splash = $('splash');
 const chatWrap = $('chatWrap'), chat = $('chat'), composer = $('composer'), input = $('input'), send = $('send');
 const sidebar = $('sidebar'), toggleSidebar = $('toggleSidebar'), newConvBtn = $('newConv'), convList = $('convList');
 const searchInput = $('searchInput');
@@ -920,30 +916,82 @@ function showThinkingPanel(promptText){
 }
 function hideThinkingPanel(){ thinkingPanel.classList.remove('show'); }
 
-// ============ Seletor de modelo ============
-const modelSel = $('modelSel');
+// ============ Seletor de modelo (troca depois de carregado, na composer) ============
+const modelSwitch = $('modelSwitch');
 const SAVED_MODEL = localStorage.getItem('katu.model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-if (modelSel) {
-  modelSel.value = SAVED_MODEL;
-  const upd = () => {
-    localStorage.setItem('katu.model', modelSel.value);
-    const opt = modelSel.selectedOptions[0];
-    const sz = opt?.dataset?.size || '?';
-    loadBtn.textContent = `Carregar modelo (≈ ${sz} GB na 1ª vez)`;
-  };
-  modelSel.addEventListener('change', upd);
-  upd();
+let currentModelId = SAVED_MODEL;
+if (modelSwitch) modelSwitch.value = SAVED_MODEL;
+function getModelId(){ return currentModelId; }
+function modelLabel(id){
+  const opt = modelSwitch && [...modelSwitch.options].find(o => o.value === id);
+  return opt ? opt.textContent : id;
 }
-function getModelId(){ return (modelSel && modelSel.value) || SAVED_MODEL; }
 
 function setStatus(txt, cls){ stTxt.textContent = txt; dot.className = 'dot ' + (cls||''); }
 function logLine(t){ log.textContent = t; }
-function showErr(msg){ prep.className = 'box err'; prep.innerHTML = '<b>Ops.</b><br>' + msg; loadBtn.style.display='none'; }
+function showErr(msg){ prep.className = 'box err'; prep.innerHTML = '<b>Ops.</b><br>' + msg; }
 
 toggleSidebar.onclick = () => sidebar.classList.toggle('hidden');
 newConvBtn.onclick = () => { newConversation(); input?.focus(); };
 
-// ============ WebGPU + carga do modelo ============
+let engine = null, abortCtl = null, streaming = false;
+
+// isSwitch=false: carga inicial (mostra o splash até terminar). isSwitch=true: troca de modelo
+// pelo seletor da composer, com o chat já em uso.
+async function loadModel(modelId, isSwitch){
+  if (isSwitch) {
+    modelSwitch.disabled = true;
+    setStatus('carregando modelo', 'load');
+    showToast('Carregando ' + modelLabel(modelId) + '…');
+  }
+  logLine('modelo: ' + modelId);
+  try {
+    if (!engine) {
+      engine = await webllm.CreateMLCEngine(modelId, {
+        initProgressCallback: (r) => {
+          logLine(r.text);
+          const m = /(\d+)\s*\/\s*(\d+)/.exec(r.text);
+          if (m) bar.style.width = Math.round(+m[1]/+m[2]*100) + '%';
+          else if (r.progress) bar.style.width = Math.round(r.progress*100) + '%';
+        }
+      });
+    } else {
+      await engine.reload(modelId);
+    }
+    currentModelId = modelId;
+    localStorage.setItem('katu.model', modelId);
+    setStatus('modelo pronto', 'ok');
+    if (isSwitch) {
+      showToast('Modelo trocado: ' + modelLabel(modelId));
+    } else {
+      splash.style.display = 'none';
+      chatWrap.style.display = 'block';
+      composer.style.display = 'block';
+      loadState();
+      if (!state.conversations.length) newConversation();
+      else { renderSidebar(); renderChat(); topTitle.textContent = current()?.title || 'Nova conversa'; }
+      refreshTutorButton();
+      input.focus();
+    }
+  } catch (e) {
+    console.error(e);
+    setStatus('erro ao carregar', 'err');
+    if (isSwitch) { showToast('Erro ao trocar de modelo: ' + (e.message||e)); modelSwitch.value = currentModelId; }
+    else showErr(String(e.message || e));
+  } finally {
+    if (isSwitch) modelSwitch.disabled = false;
+  }
+}
+
+if (modelSwitch) {
+  modelSwitch.addEventListener('change', () => {
+    if (streaming) { showToast('Aguarde a resposta atual terminar antes de trocar de modelo'); modelSwitch.value = currentModelId; return; }
+    if (modelSwitch.value === currentModelId) return;
+    loadModel(modelSwitch.value, true);
+  });
+}
+
+// ============ WebGPU + carga automática do modelo padrão ============
 (async () => {
   if (!('gpu' in navigator)) {
     setStatus('WebGPU indisponível', 'err');
@@ -954,44 +1002,10 @@ newConvBtn.onclick = () => { newConversation(); input?.focus(); };
     setStatus('sem GPU compatível', 'err');
     return showErr('Não achei GPU compatível com WebGPU. Verifique se a iGPU/GPU tem driver atualizado.');
   }
-  setStatus('pronto para carregar', 'ok');
   logLine('WebGPU OK · adapter: ' + (adapter.info?.vendor || 'desconhecido'));
-  loadBtn.disabled = false;
-})();
-
-let engine = null, abortCtl = null, streaming = false;
-
-loadBtn.onclick = async () => {
-  loadBtn.disabled = true;
-  loadBtn.textContent = 'Carregando…';
-  if (modelSel) modelSel.disabled = true;
   setStatus('carregando modelo', 'load');
-  const chosen = getModelId();
-  logLine('modelo: ' + chosen);
-  try {
-    engine = await webllm.CreateMLCEngine(chosen, {
-      initProgressCallback: (r) => {
-        logLine(r.text);
-        const m = /(\d+)\s*\/\s*(\d+)/.exec(r.text);
-        if (m) bar.style.width = Math.round(+m[1]/+m[2]*100) + '%';
-        else if (r.progress) bar.style.width = Math.round(r.progress*100) + '%';
-      }
-    });
-    setStatus('modelo pronto', 'ok');
-    splash.style.display = 'none';
-    chatWrap.style.display = 'block';
-    composer.style.display = 'block';
-    loadState();
-    if (!state.conversations.length) newConversation();
-    else { renderSidebar(); renderChat(); topTitle.textContent = current()?.title || 'Nova conversa'; }
-    refreshTutorButton();
-    input.focus();
-  } catch (e) {
-    console.error(e);
-    setStatus('erro ao carregar', 'err');
-    showErr(String(e.message || e));
-  }
-};
+  await loadModel(getModelId(), false);
+})();
 
 // ============ Envio / streaming ============
 function setSendState(sending){
