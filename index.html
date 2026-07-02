@@ -638,7 +638,7 @@ modalStats.addEventListener('click', e => { if (e.target === modalStats) modalSt
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const CONST_VB_W = 400, CONST_VB_H = 140;
 const CONST_CX = CONST_VB_W / 2, CONST_CY = CONST_VB_H / 2;
-const CONST_MAX = 150;         // teto de estrelas visíveis; depois disso só pulsa
+const CONST_MAX = 600;         // teto de estrelas visíveis; alto o bastante pra não travar em respostas longas
 const CONST_LINK_DIST = 42;    // distância máx. (unidades do viewBox) para conectar
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
@@ -669,8 +669,11 @@ const SHAPE_LABELS = { poligono:'um polígono', flor:'uma flor', grade:'um circu
 // e devolve {x,y} em coordenadas do viewBox — o esqueleto se completa conforme os tokens chegam.
 function shapeDefault(n){
   // Filotaxia (padrão de girassol) — cresce do centro pra fora, sensação orgânica neutra.
+  // Depois de um raio-teto, órbita nesse raio em vez de continuar crescendo pra fora da caixa.
   const angle = n * GOLDEN_ANGLE;
-  const r = 5 * Math.sqrt(n + 1);
+  let r = 5 * Math.sqrt(n + 1);
+  const maxR = 56;
+  if (r > maxR) r = maxR - ((r - maxR) % 8);
   const jitter = 3;
   return {
     x: CONST_CX + r * Math.cos(angle) + (Math.random() - .5) * jitter,
@@ -700,15 +703,18 @@ function shapePolygon(n){
 function shapeFlower(n){
   // Curva-rosa de 5 pétalas que "desabrocha": raio cresce nas primeiras voltas até o tamanho final.
   // thetaStep maior: 1ª volta (5 pétalas) fecha em ~20 tokens.
+  // Depois que desabrocha, cada volta gira um pouco (drift) — sem isso, voltas extras
+  // redesenhavam a MESMA curva em cima da anterior e a animação parecia ter travado.
   const k = 5, thetaStep = 0.31;
   const theta = n * thetaStep;
   const lap = Math.floor(theta / (2 * Math.PI));
   const bloom = Math.min(1, 0.35 + lap * 0.33);
+  const drift = lap * 0.22;
   const r = 10 + 50 * bloom * Math.abs(Math.cos(k * theta));
   const jitter = 1.5;
   return {
-    x: CONST_CX + r * Math.cos(theta) + (Math.random() - .5) * jitter,
-    y: CONST_CY + r * Math.sin(theta) + (Math.random() - .5) * jitter
+    x: CONST_CX + r * Math.cos(theta + drift) + (Math.random() - .5) * jitter,
+    y: CONST_CY + r * Math.sin(theta + drift) + (Math.random() - .5) * jitter
   };
 }
 function shapeGrid(n){
@@ -723,10 +729,21 @@ function shapeGrid(n){
   const idx = n % perLap;
   const row = Math.floor(idx / cols);
   const col = (row % 2 === 0) ? (idx % cols) : (cols - 1 - (idx % cols));
+  let x = marginX + (col / (cols - 1)) * usableW;
+  let y = marginY + (row / (rows - 1)) * usableH;
+  // A partir da 2ª volta, gira a grade toda em torno do centro (oscilando, não acumulando —
+  // rotação livre levaria os cantos da grade pra fora da caixa) — sem isso, voltas extras
+  // caíam quase em cima dos mesmos pontos e a animação parecia parada.
+  if (lap > 0) {
+    const ang = Math.sin(lap * 0.35) * 0.28;
+    const dx = x - CONST_CX, dy = y - CONST_CY;
+    x = CONST_CX + dx * Math.cos(ang) - dy * Math.sin(ang);
+    y = CONST_CY + dx * Math.sin(ang) + dy * Math.cos(ang);
+  }
   const jitter = lap === 0 ? 0.8 : 2.2;
   return {
-    x: marginX + (col / (cols - 1)) * usableW + (Math.random() - .5) * jitter,
-    y: marginY + (row / (rows - 1)) * usableH + (Math.random() - .5) * jitter
+    x: x + (Math.random() - .5) * jitter,
+    y: y + (Math.random() - .5) * jitter
   };
 }
 function shapeSpiral(n){
@@ -869,10 +886,11 @@ function updatePanel(){
   tpPhaseText.textContent = inThink ? 'Raciocinando' : (hasClose || (tutorMode && d.total > 0)) ? 'Escrevendo resposta' : 'Escrevendo';
 
   // Constelação: adiciona estrelas para cada token novo desde o último frame.
-  // Depois de 200 tokens dá um passo maior no addEvery pra não superlotar.
+  // Passo cresce aos poucos pra não superlotar o SVG em respostas bem longas.
   if (constState) {
-    if (d.total > 200 && constState.addEvery < 2) constState.addEvery = 2;
-    if (d.total > 400 && constState.addEvery < 3) constState.addEvery = 3;
+    if (d.total > 250 && constState.addEvery < 2) constState.addEvery = 2;
+    if (d.total > 600 && constState.addEvery < 3) constState.addEvery = 3;
+    if (d.total > 1200 && constState.addEvery < 4) constState.addEvery = 4;
     const phase = inThink ? 'raciocinando' : 'escrevendo';
     while (constState.lastCount < d.total) {
       constState.lastCount++;
