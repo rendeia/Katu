@@ -108,19 +108,13 @@
   .tp-count b{color:var(--text);font-size:15px;font-weight:700}
   .tp-tps{margin-left:auto;font-size:12px;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
   .tp-tps b{color:var(--text);font-size:14px;font-weight:600}
-  /* Timeline de etapas do raciocínio (substitui o gráfico) */
-  .tp-steps{margin-bottom:6px;max-height:140px;overflow-y:auto;padding:6px 2px;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border)}
-  .tp-steps.empty{padding:10px 12px;text-align:center;font-size:12px;color:var(--muted);font-style:italic;border:none}
-  .tp-steps .step{display:flex;align-items:flex-start;gap:8px;padding:4px 6px;font-size:12.5px;line-height:1.5}
-  .tp-steps .step + .step{margin-top:1px}
-  .tp-steps .step .mk{width:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
-  .tp-steps .step.done .mk{color:var(--ok)}
-  .tp-steps .step.active .mk{color:var(--think);animation:stepPulse 1.2s ease-in-out infinite}
-  .tp-steps .step .tx{flex:1;color:var(--text)}
-  .tp-steps .step.done .tx{color:var(--muted)}
-  .tp-steps .step.active .tx{color:var(--think);font-weight:500}
-  @keyframes stepPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.15)}}
-  .tp-steps .step .mk svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  /* Constelação pulsante — cada token acende uma estrela; próximas se ligam */
+  .tp-const{position:relative;margin-bottom:6px;height:140px;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);overflow:hidden}
+  .tp-const svg{width:100%;height:100%;display:block;transform-origin:center;transform:scale(calc(1 + var(--pulse, 0) * 0.05));transition:transform .25s ease}
+  .tp-const .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 16px;font-size:12px;color:var(--muted);font-style:italic;pointer-events:none;transition:opacity .35s}
+  .tp-const.has-stars .empty-hint{opacity:0}
+  .tp-const .star{transition:r .3s ease, opacity .5s ease}
+  .tp-const .link{stroke-linecap:round;transition:stroke-opacity .4s}
   .tp-progress{width:100%;height:3px;background:var(--panel2);border-radius:99px;overflow:hidden}
   .tp-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s;width:0%}
   .tp-note{font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;font-family:ui-monospace,Consolas,monospace}
@@ -242,7 +236,13 @@
             <div class="tp-count"><b id="tpCount">0</b> tokens</div>
             <div class="tp-tps"><b id="tpTps">0.0</b> tok/s</div>
           </div>
-          <div class="tp-steps empty" id="tpSteps">Aguardando primeiro passo do raciocínio…</div>
+          <div class="tp-const" id="tpConst" style="--pulse:0">
+            <svg viewBox="0 0 400 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <g id="tpConstLinks"></g>
+              <g id="tpConstStars"></g>
+            </svg>
+            <div class="empty-hint" id="tpConstHint">Aguardando primeiro token… a constelação se forma a cada palavra pensada.</div>
+          </div>
           <div class="tp-progress"><div id="tpProgress"></div></div>
           <div class="tp-note" id="tpNote"></div>
         </div>
@@ -341,7 +341,7 @@ const modalStats = $('modalStats'), statsClose = $('statsClose'), statsBody = $(
 const toast = $('toast');
 const thinkingPanel = $('thinkingPanel');
 const tpPhase = $('tpPhase'), tpPhaseText = $('tpPhaseText'), tpCount = $('tpCount'), tpTps = $('tpTps');
-const tpSteps = $('tpSteps');
+const tpConst = $('tpConst'), tpConstStars = $('tpConstStars'), tpConstLinks = $('tpConstLinks'), tpConstHint = $('tpConstHint');
 const tpProgress = $('tpProgress'), tpNote = $('tpNote');
 const composerHint = $('composerHint');
 
@@ -625,60 +625,80 @@ function openStatsModal(think){
 statsClose.onclick = () => modalStats.classList.remove('open');
 modalStats.addEventListener('click', e => { if (e.target === modalStats) modalStats.classList.remove('open'); });
 
-// ============ Painel do pensamento — Timeline de etapas ============
-// Detecta marcadores de passo comuns em pt-BR + inglês; cada frase que abre com um deles vira uma etapa.
-const STEP_MARKERS_RE = /^(?:(?:Primeiro|Segundo|Terceiro|Quarto|Quinto|Depois|Em seguida|Ent[ãa]o|Assim|Portanto|Logo|Verificando|Concluindo|Analisando|Considerando|Vamos|Preciso|Comecemos|Aplicando|Substituindo|Reorganizando|Finalmente|Antes|Note que|Observe|Repare|Isolando|Calculando|First|Second|Third|Then|Next|Therefore|Finally|So|Now|Let me|Let's|I need|We need|Consider|Note that|Applying|Substituting)\b[,:\s]|[-*•]\s|\d+[.)]\s)/i;
+// ============ Painel do pensamento — Constelação pulsante ============
+// Cada token novo acende uma estrela; a mais próxima recebe uma linha ligando as duas.
+// A constelação inteira pulsa no ritmo da geração; roxa quando escreve, dourada quando raciocina.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const CONST_VB_W = 400, CONST_VB_H = 140;
+const CONST_CX = CONST_VB_W / 2, CONST_CY = CONST_VB_H / 2;
+const CONST_MAX = 150;         // teto de estrelas visíveis; depois disso só pulsa
+const CONST_LINK_DIST = 42;    // distância máx. (unidades do viewBox) para conectar
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 let ticker = null;
 let tickerData = null;
+let constState = null;
 
-// Extrai etapas do raciocínio dentro do <think>. Retorna [{title, active}]
-function extractSteps(thinkText, thinkClosed){
-  if (!thinkText || thinkText.trim().length === 0) return [];
-  // Divide por quebras naturais: newline, fim de sentença (.!?)
-  const raw = thinkText
-    .split(/(?:\n+|(?<=[.!?])\s+)/)
-    .map(s => s.trim())
-    .filter(s => s.length > 2);
-  if (raw.length === 0) return [];
-  // Agrupa: cada sentença com marcador começa novo passo; seguintes se juntam ao passo atual até vir outro marcador
-  const steps = [];
-  for (const s of raw) {
-    const isMarker = STEP_MARKERS_RE.test(s);
-    if (isMarker || steps.length === 0) {
-      steps.push(s);
-    } else {
-      // Continua o passo anterior (mas mostra só o cabeçalho para não poluir)
-      steps[steps.length - 1] = steps[steps.length - 1]; // no-op — mantém título curto
-    }
-  }
-  // Marca o último como ativo se o <think> ainda está aberto
-  return steps.map((title, i) => {
-    const active = !thinkClosed && i === steps.length - 1;
-    const short = title.length > 110 ? title.slice(0, 110).trim() + '…' : title;
-    return { title: short, active };
-  });
+function resetConstellation(){
+  constState = { stars: [], lastCount: 0, addEvery: 1 };
+  tpConstStars.textContent = '';
+  tpConstLinks.textContent = '';
+  tpConst.classList.remove('has-stars');
+  tpConst.style.setProperty('--pulse', '0');
 }
 
-const STEP_DONE = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
-const STEP_ACTIVE = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
+function addStar(phase){
+  const stars = constState.stars;
+  if (stars.length >= CONST_MAX) return;
+  const n = stars.length;
+  // Filotaxia (padrão de girassol) + jitter — cresce do centro pra fora, sensação orgânica
+  const angle = n * GOLDEN_ANGLE;
+  const r = 5 * Math.sqrt(n + 1);
+  const jitter = 3;
+  const rawX = CONST_CX + r * Math.cos(angle) + (Math.random() - .5) * jitter;
+  const rawY = CONST_CY + r * Math.sin(angle) + (Math.random() - .5) * jitter * 0.7;
+  const cx = Math.max(6, Math.min(CONST_VB_W - 6, rawX));
+  const cy = Math.max(6, Math.min(CONST_VB_H - 6, rawY));
+  const isThink = phase === 'raciocinando';
+  const color = isThink ? 'var(--think)' : 'var(--accent)';
 
-function renderSteps(steps){
-  if (steps.length === 0) {
-    tpSteps.className = 'tp-steps empty';
-    tpSteps.textContent = 'Aguardando primeiro passo do raciocínio…';
-    return;
+  const star = document.createElementNS(SVG_NS, 'circle');
+  star.setAttribute('cx', cx.toFixed(2));
+  star.setAttribute('cy', cy.toFixed(2));
+  star.setAttribute('r', '2.4');
+  star.setAttribute('class', 'star');
+  star.setAttribute('fill', color);
+  star.style.color = isThink ? '#f4b942' : '#7c5cff';
+  star.style.filter = 'drop-shadow(0 0 3px currentColor)';
+  star.style.opacity = '0';
+  tpConstStars.appendChild(star);
+  requestAnimationFrame(() => { star.style.opacity = '0.95'; });
+
+  // Conecta à estrela existente mais próxima dentro do raio
+  let bestI = -1, bestD = CONST_LINK_DIST;
+  for (let i = 0; i < stars.length; i++) {
+    const dx = stars[i].x - cx, dy = stars[i].y - cy;
+    const d = Math.hypot(dx, dy);
+    if (d < bestD) { bestD = d; bestI = i; }
   }
-  tpSteps.className = 'tp-steps';
-  const shouldScroll = (tpSteps.scrollTop + tpSteps.clientHeight + 10) >= tpSteps.scrollHeight;
-  tpSteps.innerHTML = steps.map(s => `
-    <div class="step ${s.active ? 'active' : 'done'}">
-      <span class="mk">${s.active ? STEP_ACTIVE : STEP_DONE}</span>
-      <span class="tx">${escapeText(s.title)}</span>
-    </div>`).join('');
-  if (shouldScroll) tpSteps.scrollTop = tpSteps.scrollHeight;
+  if (bestI >= 0) {
+    const s2 = stars[bestI];
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', cx.toFixed(2));
+    line.setAttribute('y1', cy.toFixed(2));
+    line.setAttribute('x2', s2.x.toFixed(2));
+    line.setAttribute('y2', s2.y.toFixed(2));
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '0.6');
+    line.setAttribute('stroke-opacity', '0');
+    line.setAttribute('class', 'link');
+    tpConstLinks.appendChild(line);
+    requestAnimationFrame(() => line.setAttribute('stroke-opacity', '0.35'));
+  }
+
+  stars.push({ x: cx, y: cy, el: star });
+  if (stars.length === 1) tpConst.classList.add('has-stars');
 }
-function escapeText(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function startTicker(state){
   tickerData = state;
@@ -718,16 +738,25 @@ function updatePanel(){
   tpPhase.className = 'tp-phase ' + (inThink ? 'raciocinando' : 'escrevendo');
   tpPhaseText.textContent = inThink ? 'Raciocinando' : (hasClose || (tutorMode && d.total > 0)) ? 'Escrevendo resposta' : 'Escrevendo';
 
-  // Etapas: extraídas do conteúdo do <think>
-  if (hasOpen) {
-    const m = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
-    const thinkText = m ? m[1] : '';
-    const steps = extractSteps(thinkText, hasClose);
-    renderSteps(steps);
-  } else {
-    // Sem <think> — mostra apenas indicador de que está escrevendo direto
-    tpSteps.className = 'tp-steps empty';
-    tpSteps.textContent = tutorMode ? 'O modelo pulou o <think> — respondendo direto.' : 'Sem raciocínio explícito nesta resposta.';
+  // Constelação: adiciona estrelas para cada token novo desde o último frame.
+  // Depois de 200 tokens dá um passo maior no addEvery pra não superlotar.
+  if (constState) {
+    if (d.total > 200 && constState.addEvery < 2) constState.addEvery = 2;
+    if (d.total > 400 && constState.addEvery < 3) constState.addEvery = 3;
+    const phase = inThink ? 'raciocinando' : 'escrevendo';
+    while (constState.lastCount < d.total) {
+      constState.lastCount++;
+      if (constState.lastCount % constState.addEvery === 0) addStar(phase);
+    }
+    // Pulso proporcional ao tok/s recente (0..1) — CSS transforma em scale sutil
+    const pulse = Math.min(1, recentTps / 15);
+    tpConst.style.setProperty('--pulse', pulse.toFixed(3));
+    if (constState.stars.length === 0 && d.total === 0) {
+      tpConstHint.textContent = 'Aguardando primeiro token… a constelação se forma a cada palavra pensada.';
+    } else if (constState.stars.length === 0) {
+      // sem stars mas tokens saíram (addEvery > 1 pulou tudo? só teoria) — força ao menos uma
+      addStar(phase);
+    }
   }
 
   // Nota curta e útil
@@ -736,9 +765,7 @@ function updatePanel(){
 
 function showThinkingPanel(){
   thinkingPanel.classList.add('show');
-  // Reset timeline
-  tpSteps.className = 'tp-steps empty';
-  tpSteps.textContent = 'Aguardando primeiro passo do raciocínio…';
+  resetConstellation();
   tpCount.textContent = '0'; tpTps.textContent = '0.0'; tpProgress.style.width = '0%';
   tpPhase.className = 'tp-phase escrevendo'; tpPhaseText.textContent = 'Aguardando 1º token…';
   tpNote.textContent = '';
