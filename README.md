@@ -14,11 +14,28 @@
 </p>
 
 > **Katu** vem do tupi-guarani e significa **bom / justo / correto** — uma família
-> voltada a **raciocínio, análise e resolução de problemas**. Diferente da família
-> Arandu (que roda em CPU pelo llamafile), o Katu usa **WebLLM + WebGPU** e roda
-> **direto na sua iGPU/GPU**, sem processo de servidor.
+> voltada a **raciocínio, análise e resolução de problemas**.
 
-## ⚡ O que muda em relação ao Arandu
+## 🔁 Duas edições da Katu
+
+O eixo é o mesmo (**raciocínio**); muda o motor e a forma de entrega:
+
+| Edição | Motor | Modelo | Onde / para quê |
+|---|---|---|---|
+| **WebGPU / browser** (este repo) | WebLLM + WebGPU (iGPU/GPU) | Llama-3.2-3B (MLC) | abrir 1 HTML, zero instalação — **demo/vitrine** |
+| **CPU / pendrive** — *Katu Mirim 2.1* | llamafile → CPU | **Qwen3-1.7B em modo pensante** | dentro da plataforma [Rendeia/Arandu](https://github.com/rendeia/Arandu) — **uso real em pt-BR** |
+
+A edição **CPU/pendrive (2.1)** roda no **mesmo hardware-alvo** da Rendeia (CPU, sem GPU) e tem **pt-BR bem melhor** — é a recomendada para português. A **WebGPU** brilha como demo "experimente no navegador", mas exige GPU + navegador moderno (não roda no alvo com a iGPU bloqueada).
+
+> **Honestidade:** a Katu 2.1 (CPU) **não tem pesos próprios** — é o **Qwen3-1.7B base** rodando em *modo pensante* (`<think>`) com o system prompt do Katu. O raciocínio vem do thinking nativo do Qwen3, não de um fine-tune. Testamos o DeepSeek-R1-Distill-1.5B e **descartamos** (raciocina, mas o pt-BR sai quebrado). Um Katu com fine-tune de raciocínio pt-BR fica como evolução futura.
+
+### Como usar a edição CPU (Katu Mirim 2.1)
+1. Tenha a plataforma **[Rendeia/Arandu](https://github.com/rendeia/Arandu)** montada (llamafile + `chat.html`).
+2. Faça uma **cópia** do `Qwen_Qwen3-1.7B-Q4_K_M.gguf` chamada `Katu-Qwen3-1.7B-Q4_K_M.gguf` na pasta.
+3. Rode **`Usar_Katu_Mirim.bat`** → `Desligar_IA.bat` → abra pelo `IA_Portatil.vbs`.
+4. O chat mostra o bloco **💭 Pensamento** sozinho — o Qwen3 pensa antes de responder.
+
+## ⚡ WebGPU × Arandu (edição browser)
 
 |  | **Arandu** (G1) na Rendeia | **Katu** (G2) — este repo |
 |---|---|---|
@@ -92,21 +109,22 @@ Katu/
 
 ## 🧠 Modelos da família Katu
 
-| Tier | Modelo | Base | Status |
-|---|---|---|---|
-| **Mirim** (pequeno) | Katu Mirim 2.0 | [mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC) | ✅ disponível |
-| **Eté** (médio) | Katu Eté 2.x | modelo ~3B com raciocínio (a definir) | 🔜 planejado |
-| **Guaçu** (grande) | Katu Guaçu 2.x | modelo ~7B com raciocínio (a definir) | 🔜 planejado |
+| Tier | Modelo | Base | Edição | Status |
+|---|---|---|---|---|
+| **Mirim** | **Katu Mirim 2.1** | Qwen3-1.7B (modo pensante) | **CPU/pendrive** (Rendeia) | ✅ recomendada p/ pt-BR |
+| **Mirim** | Katu Mirim 2.0 | [Llama-3.2-3B (MLC)](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC) | WebGPU/browser | ✅ demo |
+| **Eté** (médio) | Katu Eté 2.x | modelo ~3B com raciocínio (a definir) | — | 🔜 planejado |
+| **Guaçu** (grande) | Katu Guaçu 2.x | modelo ~7B com raciocínio (a definir) | — | 🔜 planejado |
 
 ## 🎯 Quando usar Katu em vez de Arandu?
 
 | Você quer… | Use |
 |---|---|
-| Conversa do dia-a-dia, resumos, redação, tradução | **Arandu Mirim 1.1** (rápido em CPU) |
-| Resolver problema passo a passo (matemática, lógica) | **Katu Mirim 2.0** (raciocina) |
-| Analisar/comparar/cruzar informações | **Katu Mirim 2.0** |
-| Explicar "por quê" / depurar situação | **Katu Mirim 2.0** |
-| Máquina antiga sem WebGPU | **Arandu Mirim 1.1** |
+| Conversa do dia-a-dia, resumos, redação, tradução | **Arandu Mirim 1.2** (rápido em CPU) |
+| Resolver problema passo a passo (matemática, lógica), em pt-BR | **Katu Mirim 2.1** (CPU, raciocina em português) |
+| Analisar/comparar/cruzar informações | **Katu Mirim 2.1** (CPU) ou **2.0** (WebGPU) |
+| Demo de raciocínio no navegador, sem instalar | **Katu Mirim 2.0** (WebGPU) |
+| Máquina sem WebGPU (ex.: iGPU bloqueada) | **Katu Mirim 2.1** (CPU) ou **Arandu Mirim 1.2** |
 
 ## 🔒 Privacidade
 
