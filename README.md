@@ -16,13 +16,18 @@
 > **Katu** vem do tupi-guarani e significa **bom / justo / correto** — uma família
 > voltada a **raciocínio, análise e resolução de problemas**.
 
+### 🚀 Experimente sem instalar nada
+
+👉 **[huggingface.co/spaces/rendeia/katu](https://huggingface.co/spaces/rendeia/katu)** —
+abre no navegador, carrega o modelo sozinho, zero setup.
+
 ## 🔁 Duas edições da Katu
 
 O eixo é o mesmo (**raciocínio**); muda o motor e a forma de entrega:
 
 | Edição | Motor | Modelo | Onde / para quê |
 |---|---|---|---|
-| **WebGPU / browser** (este repo) | WebLLM + WebGPU (iGPU/GPU) | Llama-3.2-3B (MLC) | abrir 1 HTML, zero instalação — **demo/vitrine** |
+| **WebGPU / browser** (este repo) | WebLLM + WebGPU (iGPU/GPU) | Llama-3.2-1B, padrão — 3B/Hermes trocáveis (MLC) | abrir 1 HTML, zero instalação — **demo/vitrine** |
 | **CPU / pendrive** — *Katu Mirim 2.1* | llamafile → CPU | **Qwen3-1.7B em modo pensante** | dentro da plataforma [Rendeia/Arandu](https://github.com/rendeia/Arandu) — **uso real em pt-BR** |
 
 A edição **CPU/pendrive (2.1)** roda no **mesmo hardware-alvo** da Rendeia (CPU, sem GPU) e tem **pt-BR bem melhor** — é a recomendada para português. A **WebGPU** brilha como demo "experimente no navegador", mas exige GPU + navegador moderno (não roda no alvo com a iGPU bloqueada).
@@ -66,13 +71,32 @@ Ou baixe o `.zip` em [Releases](https://github.com/rendeia/Katu/releases) e extr
 > em `http://localhost:8078` (nada é instalado — só é preciso ter o
 > [Node.js](https://nodejs.org) no PC).
 
-### 3. Clique em "Carregar modelo"
-- **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 2 GB, uma vez só**). Você precisa de internet **nessa** carga.
+### 3. Pronto — carrega sozinho
+- O app já abre carregando o **Llama-3.2-1B** automaticamente, sem precisar clicar em nada.
+- **Primeira vez:** o navegador baixa o modelo do Hugging Face (**≈ 0,8 GB, uma vez só**). Você precisa de internet **nessa** carga.
 - **Depois:** fica no cache do navegador. **Offline pra sempre**, mesmo que você tire a internet.
-
-Pronto — chat pronto pra usar. Se você pedir "pense passo a passo", o raciocínio pode aparecer num bloco **💭 Pensamento** colapsável.
+- Quer trocar de modelo (3B, mais qualidade; ou Hermes-3, mais raciocínio)? Tem um seletor
+  ao lado da caixa de pergunta — troca a qualquer momento, sem recarregar a página.
 
 Para encerrar: feche a janela do lançador (`Ctrl+C` no terminal).
+
+## 🧪 O que o Katu sabe fazer
+
+- **Raciocínio passo a passo** — modo tutor (ligado por padrão) faz o modelo pensar dentro
+  de um bloco **💭 Pensamento** colapsável antes de responder.
+- **Cálculo exato** — para aritmética, porcentagem, conversão, datas, o modelo escreve
+  código JavaScript num bloco **🧮 Cálculo**, executado num Web Worker isolado (sem acesso
+  a rede ou DOM), e usa o resultado real na resposta em vez de "chutar" de cabeça.
+- **Modo deliberar** (opt-in, ~3-4x mais lento) — gera 3 rascunhos em temperaturas
+  diferentes e sintetiza a melhor resposta final, mostrando as tentativas num bloco
+  **🗳️ Deliberação** transparente.
+- **Memória semântica** (opt-in) — guarda cada troca como embedding no IndexedDB do
+  navegador e busca por similaridade as lembranças mais relevantes de conversas passadas
+  antes de responder, mostradas num bloco **🧠**.
+- **Constelação pulsante** — em vez de um indicador genérico de "digitando", cada token
+  acende um ponto que forma uma figura relacionada a palavras-chave do seu prompt
+  (matemática vira polígono, natureza vira flor, código vira circuito, história vira
+  espiral, arte/música vira onda).
 
 ## 🖥️ Requisitos
 
@@ -105,14 +129,15 @@ Katu/
 └── .gitignore
 ```
 
-**Total: ~6,4 MB de código.** O modelo (~2 GB) fica no cache do browser, não no disco do projeto.
+**Total: ~6,4 MB de código.** O modelo (~0,8-2 GB, conforme o escolhido) fica no cache do
+browser, não no disco do projeto.
 
 ## 🧠 Modelos da família Katu
 
 | Tier | Modelo | Base | Edição | Status |
 |---|---|---|---|---|
 | **Mirim** | **Katu Mirim 2.1** | Qwen3-1.7B (modo pensante) | **CPU/pendrive** (Rendeia) | ✅ recomendada p/ pt-BR |
-| **Mirim** | Katu Mirim 2.0 | [Llama-3.2-3B (MLC)](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC) | WebGPU/browser | ✅ demo |
+| **Mirim** | Katu Mirim 2.0 | [Llama-3.2-1B](https://huggingface.co/mlc-ai/Llama-3.2-1B-Instruct-q4f16_1-MLC) (padrão) · [3B](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC) · [Hermes-3](https://huggingface.co/mlc-ai/Hermes-3-Llama-3.2-3B-q4f16_1-MLC) (MLC) | WebGPU/browser | ✅ demo — trocável no app |
 | **Eté** (médio) | Katu Eté 2.x | modelo ~3B com raciocínio (a definir) | — | 🔜 planejado |
 | **Guaçu** (grande) | Katu Guaçu 2.x | modelo ~7B com raciocínio (a definir) | — | 🔜 planejado |
 
@@ -135,19 +160,23 @@ Katu/
 
 ## 🧪 Honestidade técnica
 
-- O **Llama-3.2-3B-Instruct** é um modelo instruct competente, mas **não tem
-  `<think>` nativo** como um R1 Distill teria. O bloco "💭 Pensamento"
-  colapsável no chat só aparece quando o modelo produz `<think>...</think>` —
-  aqui isso acontece só se você **pedir explicitamente** "pense passo a passo
-  antes de responder".
+- Nenhum dos modelos (**Llama-3.2-1B/3B**, **Hermes-3-Llama-3.2-3B**) tem
+  `<think>` nativo como um R1 Distill teria. O **modo tutor** (ligado por
+  padrão) contorna isso injetando a instrução de pensar passo a passo no
+  prompt de sistema — o bloco "💭 Pensamento" aparece porque foi pedido, não
+  por um reasoning nativo do modelo.
 - **Por que não o R1 Distill 1.5B?** A MLC (fornecedora dos modelos WebLLM)
   **removeu o DeepSeek-R1-Distill-Qwen-1.5B** do pré-compilado v0.2.84 por
-  problema de correção reportado. Trocamos para Llama-3.2-3B (oficialmente
-  suportado, sem risco de saída errada). Voltaremos ao R1 quando a MLC
-  reincluir com fix ou quando houver equivalente.
-- **pt-BR é decente**, mas o Arandu Mirim 1.1 (com imatrix pt-BR) é melhor em
-  português puro. O Katu compensa em **análise / raciocínio** e velocidade na
-  iGPU.
+  problema de correção reportado. Voltaremos ao R1 quando a MLC reincluir
+  com fix ou quando houver equivalente.
+- **pt-BR é decente**, mas o Katu Mirim 2.1 (CPU/pendrive, com imatrix pt-BR
+  no Arandu) é melhor em português puro. O Katu 2.0 compensa em
+  **análise / raciocínio** e velocidade na iGPU.
+- O bloco **🧮 Cálculo** resolve a maior parte dos erros de aritmética, mas o
+  modelo (1B/3B) ainda pode escrever código com pequenos deslizes — por
+  exemplo, usar vírgula como separador decimal (hábito de pt-BR) dentro do
+  JavaScript, o que quebra a execução. Quando isso acontece, o erro aparece
+  no próprio bloco (não trava o app) e o modelo tenta de novo.
 - A **primeira geração** de tokens depois de carregar é ~2s mais lenta
   (compilação de shaders WebGPU). Depois, fluído.
 - Modelo fica em **VRAM enquanto a aba estiver aberta**. Fechar a aba libera.
@@ -155,24 +184,23 @@ Katu/
 
 ## 🛣️ Próximas evoluções
 
-- **Persistir histórico** de conversas em `localStorage`
 - **Fine-tune próprio** em corpus pt-BR de raciocínio
 - **Katu Eté 2.x** — versão média (~3B) quando aparecer modelo compatível com MLC
-- **Modo memória** semelhante ao da Rendeia (perfil + itens sob demanda)
 - **PWA** (Progressive Web App) — instalar como app
 
 ## 📜 Licença e créditos
 
 | Componente | Autor | Licença |
 |---|---|---|
-| **Llama-3.2-3B-Instruct** (modelo atual) | Meta | Llama 3.2 Community License |
+| **Llama-3.2-1B/3B-Instruct** (padrão/opcional) | Meta | Llama 3.2 Community License |
+| **Hermes-3-Llama-3.2-3B** (opcional) | NousResearch | Llama 3.2 Community License |
 | **WebLLM / MLC-LLM** (motor) | MLC.ai / CMU / Shanghai Jiao Tong | Apache-2.0 |
 | **Katu** (este repo) | celionormando | Apache-2.0 |
 
 > **Sobre a licença do Llama:** a Llama 3.2 Community License permite uso
-> comercial e redistribuição com atribuição. O modelo é servido do repo
-> [mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC](https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC)
-> — este projeto apenas linka; nada é redistribuído aqui.
+> comercial e redistribuição com atribuição. Os modelos são servidos direto do
+> Hugging Face ([mlc-ai/Llama-3.2-1B-Instruct-q4f16_1-MLC](https://huggingface.co/mlc-ai/Llama-3.2-1B-Instruct-q4f16_1-MLC)
+> e variantes) — este projeto apenas linka; nada é redistribuído aqui.
 
 Código deste repositório: **Apache-2.0** (ver `LICENSE`).
 
